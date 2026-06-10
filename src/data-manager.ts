@@ -221,6 +221,19 @@ export class DataManager {
     }
 
     const ok = localFiles.length > 0
+    if (ok) {
+      // Persist the manifest beside the FGBs so the dataset date (and the
+      // attribution dates) survive offline restarts — users must always be
+      // able to see the Navigator extract date of the data they are using.
+      try {
+        await atomicWrite(
+          join(this.datasetDir, 'manifest.json'),
+          Buffer.from(JSON.stringify(manifest, null, 2))
+        )
+      } catch {
+        // Non-fatal: the dataset still serves; only the offline date hint suffers.
+      }
+    }
     const base = `${localFiles.length.toString()}/${assets.length.toString()} region file(s) ready (dataset ${manifest.datasetDate})`
     const message = problems.length > 0 ? `${base}; ${problems.join('; ')}` : base
     return { ok, message, localFiles, manifest }

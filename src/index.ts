@@ -115,12 +115,16 @@ function asZoneIndex(index: SpatialIndex): ZoneIndex {
   }
 }
 
-function buildSchema(): object {
+function buildSchema(datasetDate?: string): object {
+  const installed = datasetDate
+    ? `Installed dataset: Navigator extract ${datasetDate}. `
+    : 'No dataset installed yet. '
   return {
     type: 'object',
     title: 'Restricted Areas (ProtectedSeas Navigator)',
     description:
       'Marine protected/managed area geofencing & display. Data: ProtectedSeas Navigator, CC BY 4.0. ' +
+      installed +
       'Summary data — NOT a legal/compliance document. Verify against official sources.',
     properties: {
       regions: {
@@ -242,6 +246,10 @@ function withDefaults(raw: object): Config {
 module.exports = (app: ServerAPI): Plugin => {
   let geofence: GeofenceEngine | undefined
   let status = `No dataset — configure regions to fetch from ${DEFAULTS.dataRepo}`
+  // The Navigator extract date of the installed dataset, surfaced in the
+  // config screen (schema description) and the status line so users always
+  // know the release date of the data they navigate with.
+  let datasetDate: string | undefined
 
   function setStatus(msg: string): void {
     status = msg
@@ -259,6 +267,7 @@ module.exports = (app: ServerAPI): Plugin => {
     setStatus(`Fetching dataset from ${config.dataRepo}…`)
     const dataset = await manager.ensureDataset()
     const manifest: Manifest | undefined = dataset.manifest
+    datasetDate = manifest?.datasetDate
 
     const attribution = attributionBlock({
       visited: manifest?.datasetDate,
@@ -303,7 +312,8 @@ module.exports = (app: ServerAPI): Plugin => {
 
     const version = manifest?.version ?? 'no dataset'
     const detail = dataset.ok ? `${index.size()} zones` : dataset.message
-    setStatus(`${version} · ${detail} · ${ATTRIBUTION_TAG}`)
+    const extractDate = datasetDate ? ` · dataset ${datasetDate}` : ''
+    setStatus(`${version}${extractDate} · ${detail} · ${ATTRIBUTION_TAG}`)
   }
 
   const plugin: Plugin = {
@@ -313,7 +323,7 @@ module.exports = (app: ServerAPI): Plugin => {
       'Serve marine restricted-area data to Freeboard-SK via the Resources API and emit ' +
       'server-side geofence notifications. Data: ProtectedSeas Navigator (CC BY 4.0).',
 
-    schema: buildSchema,
+    schema: () => buildSchema(datasetDate),
     uiSchema: buildUiSchema(),
 
     start(rawConfig: object): void {

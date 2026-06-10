@@ -70,7 +70,10 @@ otherwise flood you with false notifications.
 
 ## Attribution & disclaimer
 
-Data: **ProtectedSeas Navigator**, licensed **CC BY 4.0**.
+Data: **ProtectedSeas Navigator**, licensed **CC BY 4.0**. Each dataset release records its
+Navigator extract date (`datasetDate` in the release `manifest.json`); the date of your
+installed dataset is shown in the plugin's configuration screen and status line in the
+Signal K Admin UI, so you always know the release date of the data you are using.
 
 - Zetterlind, V. et al. (2025). *Navigator — a global database of verified marine protected
   and managed area regulations and boundaries.* Scientific Data, 12, 1212.
