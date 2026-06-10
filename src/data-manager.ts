@@ -107,10 +107,15 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
 
-/** Pick the manifest assets that belong to the configured regions. */
+/**
+ * Pick the manifest assets to download for the configured regions: the
+ * simplified DISPLAY variant only. Display geometry is what chart clients render
+ * and is within the geofence hysteresis, so the plugin serves it for both; the
+ * full variant exists for offline analysis but would bloat the on-boat download.
+ */
 function selectAssets(manifest: Manifest, regions: readonly string[]): ManifestAsset[] {
   const wanted = new Set(regions)
-  return manifest.assets.filter((a) => wanted.has(a.region) && a.name.endsWith('.fgb'))
+  return manifest.assets.filter((a) => wanted.has(a.region) && a.name.endsWith('.display.fgb'))
 }
 
 async function fetchManifest(
@@ -259,7 +264,11 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-/** Existing FGB files for a region (offline path: no manifest to consult). */
+/**
+ * Existing FGB files for a region (offline path: no manifest to consult).
+ * Prefer the simplified `.display.fgb` if present; otherwise the plain
+ * `<region>.fgb`. Never return both — the index would load each zone twice.
+ */
 async function regionFiles(dir: string, region: string): Promise<string[]> {
   const { readdir } = await import('node:fs/promises')
   let names: string[]
@@ -268,5 +277,8 @@ async function regionFiles(dir: string, region: string): Promise<string[]> {
   } catch {
     return []
   }
-  return names.filter((n) => n.endsWith('.fgb') && n.includes(region)).map((n) => join(dir, n))
+  const forRegion = names.filter((n) => n.endsWith('.fgb') && n.includes(region))
+  const display = forRegion.filter((n) => n.endsWith('.display.fgb'))
+  const chosen = display.length > 0 ? display : forRegion
+  return chosen.map((n) => join(dir, n))
 }

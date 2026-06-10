@@ -122,13 +122,13 @@ describe('sha256 helpers + atomicWrite', () => {
 describe('ensureDataset — download + verify', () => {
   it('downloads, sha256-verifies, and atomically places configured region files', async () => {
     const eu = fakeFgb('eu')
-    const manifest = manifestFor([{ name: 'eu.fgb', region: 'eu', bytes: eu }])
-    globalThis.fetch = mockGitHub({ manifest, bytesByName: { 'eu.fgb': eu } })
+    const manifest = manifestFor([{ name: 'eu.display.fgb', region: 'eu', bytes: eu }])
+    globalThis.fetch = mockGitHub({ manifest, bytesByName: { 'eu.display.fgb': eu } })
 
     const dm = new DataManager({ dataRepo: 'o/r', regions: ['eu'], dataDir, autoUpdate: true })
     const status = await dm.ensureDataset()
 
-    const placed = join(dm.datasetDir, 'eu.fgb')
+    const placed = join(dm.datasetDir, 'eu.display.fgb')
     expect(status.ok).toBe(true)
     expect(status.localFiles).toEqual([placed])
     expect(status.manifest?.datasetDate).toBe('2026-05-28')
@@ -139,22 +139,29 @@ describe('ensureDataset — download + verify', () => {
     const eu = fakeFgb('eu')
     const us = fakeFgb('us')
     const manifest = manifestFor([
-      { name: 'eu.fgb', region: 'eu', bytes: eu },
-      { name: 'us.fgb', region: 'us', bytes: us }
+      { name: 'eu.display.fgb', region: 'eu', bytes: eu },
+      { name: 'us.display.fgb', region: 'us', bytes: us }
     ])
-    globalThis.fetch = mockGitHub({ manifest, bytesByName: { 'eu.fgb': eu, 'us.fgb': us } })
+    globalThis.fetch = mockGitHub({
+      manifest,
+      bytesByName: { 'eu.display.fgb': eu, 'us.display.fgb': us }
+    })
 
     const dm = new DataManager({ dataRepo: 'o/r', regions: ['eu'], dataDir, autoUpdate: true })
     const status = await dm.ensureDataset()
 
-    expect(status.localFiles).toEqual([join(dm.datasetDir, 'eu.fgb')])
-    expect(await readdir(dm.datasetDir)).toEqual(['eu.fgb'])
+    expect(status.localFiles).toEqual([join(dm.datasetDir, 'eu.display.fgb')])
+    expect(await readdir(dm.datasetDir)).toEqual(['eu.display.fgb'])
   })
 
   it('rejects a corrupted asset (sha256 mismatch) and does not place it', async () => {
     const eu = fakeFgb('eu')
-    const manifest = manifestFor([{ name: 'eu.fgb', region: 'eu', bytes: eu }])
-    globalThis.fetch = mockGitHub({ manifest, bytesByName: { 'eu.fgb': eu }, corrupt: 'eu.fgb' })
+    const manifest = manifestFor([{ name: 'eu.display.fgb', region: 'eu', bytes: eu }])
+    globalThis.fetch = mockGitHub({
+      manifest,
+      bytesByName: { 'eu.display.fgb': eu },
+      corrupt: 'eu.display.fgb'
+    })
 
     const dm = new DataManager({ dataRepo: 'o/r', regions: ['eu'], dataDir, autoUpdate: true })
     const status = await dm.ensureDataset()
@@ -167,17 +174,17 @@ describe('ensureDataset — download + verify', () => {
 
   it('skips re-download when a verified local copy already exists', async () => {
     const eu = fakeFgb('eu')
-    const manifest = manifestFor([{ name: 'eu.fgb', region: 'eu', bytes: eu }])
+    const manifest = manifestFor([{ name: 'eu.display.fgb', region: 'eu', bytes: eu }])
     const dm = new DataManager({ dataRepo: 'o/r', regions: ['eu'], dataDir, autoUpdate: true })
-    await seedLocal(dm, 'eu.fgb', eu)
+    await seedLocal(dm, 'eu.display.fgb', eu)
 
-    const fetchMock = mockGitHub({ manifest, bytesByName: { 'eu.fgb': eu } })
+    const fetchMock = mockGitHub({ manifest, bytesByName: { 'eu.display.fgb': eu } })
     globalThis.fetch = fetchMock
     const status = await dm.ensureDataset()
 
     expect(status.ok).toBe(true)
     // releases/latest + manifest.json only — never the asset itself.
-    const assetCalls = fetchMock.mock.calls.filter(([u]) => String(u).endsWith('eu.fgb'))
+    const assetCalls = fetchMock.mock.calls.filter(([u]) => String(u).endsWith('eu.display.fgb'))
     expect(assetCalls).toEqual([])
   })
 })
@@ -186,7 +193,7 @@ describe('ensureDataset — offline-first', () => {
   it('falls back to existing local files when the network fails, without throwing', async () => {
     const eu = fakeFgb('eu')
     const dm = new DataManager({ dataRepo: 'o/r', regions: ['eu'], dataDir, autoUpdate: true })
-    const placed = await seedLocal(dm, 'eu.fgb', eu)
+    const placed = await seedLocal(dm, 'eu.display.fgb', eu)
 
     globalThis.fetch = vi.fn(() => Promise.reject(new Error('ENOTFOUND api.github.com')))
 
@@ -213,7 +220,7 @@ describe('ensureDataset — offline-first', () => {
     globalThis.fetch = fetchSpy
     const eu = fakeFgb('eu')
     const dm = new DataManager({ dataRepo: 'o/r', regions: ['eu'], dataDir, autoUpdate: false })
-    const placed = await seedLocal(dm, 'eu.fgb', eu)
+    const placed = await seedLocal(dm, 'eu.display.fgb', eu)
 
     const status = await dm.ensureDataset()
 

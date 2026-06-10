@@ -45,9 +45,9 @@ function expandHome(p) {
   return p.startsWith('~') ? join(homedir(), p.slice(1)) : p
 }
 
-/** Full FGBs only — exclude the .display.fgb siblings. */
-function isFullFgb(name) {
-  return name.endsWith('.fgb') && !name.endsWith('.display.fgb')
+/** The simplified DISPLAY FGBs — what the plugin loads and serves to chart clients. */
+function isDisplayFgb(name) {
+  return name.endsWith('.display.fgb')
 }
 
 async function main() {
@@ -62,13 +62,18 @@ async function main() {
   )
   await mkdir(dest, { recursive: true })
 
-  const fgbs = (await readdir(dist)).filter(isFullFgb)
-  if (fgbs.length === 0) throw new Error(`no full .fgb files found in ${dist}`)
+  // Stage the DISPLAY variant as the plugin's <region>.fgb. Display geometry is
+  // simplified (~50 m), which is what chart clients should render and is well
+  // within the geofence hysteresis, so the plugin uses it for both. Copying the
+  // full variant would hand Freeboard ~hundreds of MB of dense polygons.
+  const fgbs = (await readdir(dist)).filter(isDisplayFgb)
+  if (fgbs.length === 0) throw new Error(`no .display.fgb files found in ${dist}`)
 
   const regions = []
-  for (const name of fgbs) {
-    await copyFile(join(dist, name), join(dest, name))
-    regions.push(basename(name, '.fgb'))
+  for (const displayName of fgbs) {
+    const region = basename(displayName, '.display.fgb')
+    await copyFile(join(dist, displayName), join(dest, `${region}.fgb`))
+    regions.push(region)
   }
 
   // Carry the manifest's attribution/dates through if the build produced one.
