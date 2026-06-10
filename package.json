@@ -1,0 +1,54 @@
+{
+  "name": "signalk-restricted-areas",
+  "version": "0.1.0",
+  "description": "Serve marine restricted-area data (ProtectedSeas Navigator) to Freeboard-SK via the Resources API and emit server-side geofence notifications.",
+  "main": "plugin/index.js",
+  "type": "commonjs",
+  "files": [
+    "plugin/",
+    "README.md"
+  ],
+  "scripts": {
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" && eslint --fix \"src/**/*.ts\" \"test/**/*.ts\"",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
+    "build": "tsc",
+    "build:all": "npm run lint && npm run build && npm run test",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "signalk-node-server-plugin",
+    "signalk-category-utility",
+    "signalk-category-chart",
+    "marine",
+    "restricted-areas",
+    "protectedseas",
+    "geofence"
+  ],
+  "author": "Dirk Wahrheit",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "signalk": ">=2.13.0"
+  },
+  "dependencies": {
+    "@turf/bbox": "^7.1.0",
+    "@turf/boolean-point-in-polygon": "^7.1.0",
+    "flatgeobuf": "^3.36.0",
+    "rbush": "^4.0.1",
+    "uuid": "^11.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@signalk/server-api": "^2.13.0",
+    "@types/node": "^22.10.0",
+    "@types/rbush": "^4.0.0",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.0",
+    "vitest": "^2.1.8"
+  }
+}

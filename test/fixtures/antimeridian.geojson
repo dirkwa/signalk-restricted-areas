@@ -1,0 +1,113 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "SITE_ID": "ANTIMERIDIAN",
+        "site_name": "Dateline Reserve",
+        "country": "Fiji",
+        "category_name": "Marine Protected Area",
+        "anchoring": 1,
+        "entry": 2
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [179.0, -1.0],
+              [179.6, -1.0],
+              [179.6, 1.0],
+              [179.0, 1.0],
+              [179.0, -1.0]
+            ]
+          ],
+          [
+            [
+              [-179.6, -1.0],
+              [-179.0, -1.0],
+              [-179.0, 1.0],
+              [-179.6, 1.0],
+              [-179.6, -1.0]
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "SITE_ID": "BISECTED",
+        "site_name": "Twin Cells Reserve",
+        "category_name": "Fisheries Management Area",
+        "recreational_fishing": 1
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [10.0, 10.0],
+              [11.0, 10.0],
+              [11.0, 11.0],
+              [10.0, 11.0],
+              [10.0, 10.0]
+            ]
+          ],
+          [
+            [
+              [10.2, 10.2],
+              [10.8, 10.2],
+              [10.8, 10.8],
+              [10.2, 10.8],
+              [10.2, 10.2]
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "SITE_ID": "ATLANTIC",
+        "site_name": "Atlantic Box",
+        "category_name": "Recreational Area",
+        "speed": 2
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-30.0, 40.0],
+            [-29.0, 40.0],
+            [-29.0, 41.0],
+            [-30.0, 41.0],
+            [-30.0, 40.0]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "SITE_ID": "PACIFIC",
+        "site_name": "Pacific Box",
+        "category_name": "Vessel Restricted Area",
+        "entry": 1
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-120.0, 30.0],
+            [-119.0, 30.0],
+            [-119.0, 31.0],
+            [-120.0, 31.0],
+            [-120.0, 30.0]
+          ]
+        ]
+      }
+    }
+  ]
+}
