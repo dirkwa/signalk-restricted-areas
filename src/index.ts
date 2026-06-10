@@ -213,6 +213,22 @@ function buildSchema(): object {
   }
 }
 
+/**
+ * Render the multi-select enum arrays as inline checkbox groups in the admin UI
+ * (react-jsonschema-form's `checkboxes` widget) instead of the default
+ * multi-select scroll box, which is fiddly to use.
+ */
+function buildUiSchema(): object {
+  const checkboxes = { 'ui:widget': 'checkboxes', 'ui:options': { inline: true } }
+  return {
+    regions: checkboxes,
+    displayActivities: checkboxes,
+    geofence: {
+      alertOn: checkboxes
+    }
+  }
+}
+
 function withDefaults(raw: object): Config {
   const config = raw as Partial<Config>
   return {
@@ -297,6 +313,7 @@ module.exports = (app: ServerAPI): Plugin => {
       'server-side geofence notifications. Data: ProtectedSeas Navigator (CC BY 4.0).',
 
     schema: buildSchema,
+    uiSchema: buildUiSchema(),
 
     start(rawConfig: object): void {
       const config = withDefaults(rawConfig)
