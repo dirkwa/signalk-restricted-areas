@@ -35,6 +35,7 @@ const REGION_SLUGS = [
 interface Config {
   regions: string[]
   minLfp: number
+  displayActivities: Activity[]
   geofence: {
     enabled: boolean
     alertOn: Activity[]
@@ -53,6 +54,9 @@ interface Config {
 const DEFAULTS: Config = {
   regions: ['sw-pacific'],
   minLfp: 0,
+  // One toggleable Freeboard layer per activity. Default to the operationally
+  // relevant few; users add more (e.g. commercial fishing) as they wish.
+  displayActivities: ['anchoring', 'entry', 'fishing'],
   geofence: {
     enabled: true,
     alertOn: ['anchoring', 'entry'],
@@ -134,6 +138,17 @@ function buildSchema(): object {
         minimum: 0,
         maximum: 5,
         default: DEFAULTS.minLfp
+      },
+      displayActivities: {
+        type: 'array',
+        title: 'Activities to show as map layers',
+        description:
+          'Each activity becomes its own toggleable layer in Freeboard. A zone appears in a ' +
+          'layer when it restricts/prohibits that activity. Uncheck an activity (e.g. commercial ' +
+          'fishing) to drop its layer.',
+        items: { type: 'string', enum: [...ACTIVITIES] },
+        default: DEFAULTS.displayActivities,
+        uniqueItems: true
       },
       geofence: {
         type: 'object',
@@ -245,7 +260,7 @@ module.exports = (app: ServerAPI): Plugin => {
     app.registerResourceProvider(
       makeResourceProvider({
         index: asResourceIndex(index),
-        monitored: config.geofence.alertOn,
+        displayActivities: config.displayActivities,
         attribution
       })
     )

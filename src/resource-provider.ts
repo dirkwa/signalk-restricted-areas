@@ -67,8 +67,13 @@ export interface RestrictedAreasIndex {
 
 export interface ResourceProviderDeps {
   index: RestrictedAreasIndex
-  /** Activities that drive a zone's severity bucket and styleRef. */
-  monitored: readonly Activity[]
+  /**
+   * Activities exposed as individual toggleable ResourceSet layers (one set per
+   * activity). A zone appears in an activity's layer when it restricts/prohibits
+   * that activity. Lets a user hide, e.g., commercial fishing in Freeboard's
+   * layer list without affecting the others.
+   */
+  displayActivities: readonly Activity[]
   /** Attribution + disclaimer block appended to every ResourceSet description. */
   attribution: string
 }
@@ -87,23 +92,39 @@ const STYLES: Record<Severity, FreeboardStyle> = {
   info: { stroke: '#C8B400', fill: 'rgba(200,180,0,0.12)', width: 1 }
 }
 
-const BUCKETS: readonly Severity[] = ['prohibited', 'restricted', 'info']
-
-const BUCKET_NAME: Record<Severity, string> = {
-  prohibited: 'Restricted Areas — Prohibited',
-  restricted: 'Restricted Areas — Restricted',
-  info: 'Restricted Areas — Informational'
+/** Title-case label for an activity's ResourceSet name. */
+const ACTIVITY_SET_LABEL: Record<Activity, string> = {
+  anchoring: 'Anchoring',
+  mooring: 'Mooring',
+  entry: 'Entry / Transit',
+  speed: 'Speed',
+  diving: 'Diving',
+  discharge: 'Discharge',
+  dredging: 'Dredging',
+  removalOfArtifacts: 'Removal of Artifacts',
+  fishingRecreational: 'Recreational Fishing',
+  fishingCommercial: 'Commercial Fishing',
+  fishingArtisanal: 'Artisanal Fishing',
+  fishing: 'Fishing (any gear)'
 }
 
-const BUCKET_BLURB: Record<Severity, string> = {
-  prohibited: 'Areas where a monitored activity is prohibited.',
-  restricted: 'Areas where a monitored activity is restricted.',
-  info: 'Informational conservation/management areas with no hard limit on monitored activities.'
+/** The set id for one activity's layer (the suffix Freeboard shows in its layer list). */
+function activitySetId(activity: Activity): string {
+  return `restricted-areas-${activity}`
 }
 
-/** A ResourceSet id per severity bucket, in the default (no-bbox) listing. */
-function bucketSetId(severity: Severity): string {
-  return `restricted-areas-${severity}`
+/** The catch-all informational set: zones with no displayed prohibition/restriction. */
+const INFO_SET_ID = 'restricted-areas-info'
+
+/**
+ * The level at which a zone restricts an activity, as a severity for styling —
+ * or null if that activity is allowed/unknown/na (the zone is NOT in this layer).
+ */
+function levelForActivity(zone: RestrictedZoneProps, activity: Activity): Severity | null {
+  const level = zone.restrictions[activity]
+  if (level === 'prohibited') return 'prohibited'
+  if (level === 'restricted') return 'restricted'
+  return null
 }
 
 /** Activities listed at a given level, formatted for a human-readable line. */
@@ -193,22 +214,53 @@ function resourceSet(
   }
 }
 
-function bucketSets(deps: ResourceProviderDeps): Record<string, ResourceSet> {
-  const features: Record<Severity, Feature[]> = { prohibited: [], restricted: [], info: [] }
-  for (const zone of deps.index.allZones()) {
-    const severity = zoneSeverity(zone.props, deps.monitored)
-    features[severity].push(toFeature(zone, severity))
+/**
+ * Build per-activity ResourceSets from a set of zones. Each configured activity
+ * becomes its own set (toggleable layer in Freeboard); a zone joins a set when it
+ * restricts/prohibits that activity, styled by that activity's level. A final
+ * `info` set holds zones that restrict none of the displayed activities so they
+ * are still visible (LFP/conservation-only areas).
+ */
+function activitySets(
+  zones: readonly IndexedZone[],
+  deps: ResourceProviderDeps
+): Record<string, ResourceSet> {
+  const perActivity = new Map<Activity, Feature[]>()
+  for (const activity of deps.displayActivities) perActivity.set(activity, [])
+  const info: Feature[] = []
+
+  for (const zone of zones) {
+    let placed = false
+    for (const activity of deps.displayActivities) {
+      const severity = levelForActivity(zone.props, activity)
+      if (severity !== null) {
+        perActivity.get(activity)?.push(toFeature(zone, severity))
+        placed = true
+      }
+    }
+    if (!placed) info.push(toFeature(zone, 'info'))
   }
+
   const out: Record<string, ResourceSet> = {}
-  for (const severity of BUCKETS) {
-    out[bucketSetId(severity)] = resourceSet(
-      BUCKET_NAME[severity],
-      BUCKET_BLURB[severity],
-      features[severity],
+  for (const activity of deps.displayActivities) {
+    out[activitySetId(activity)] = resourceSet(
+      `Restricted Areas — ${ACTIVITY_SET_LABEL[activity]}`,
+      `Areas restricting ${ACTIVITY_SET_LABEL[activity].toLowerCase()}.`,
+      perActivity.get(activity) ?? [],
       deps.attribution
     )
   }
+  out[INFO_SET_ID] = resourceSet(
+    'Restricted Areas — Other',
+    'Conservation/management areas with no restriction on the displayed activities.',
+    info,
+    deps.attribution
+  )
   return out
+}
+
+function bucketSets(deps: ResourceProviderDeps): Record<string, ResourceSet> {
+  return activitySets(deps.index.allZones(), deps)
 }
 
 function parseBbox(value: unknown): Bbox | null {
@@ -219,17 +271,7 @@ function parseBbox(value: unknown): Bbox | null {
 }
 
 function bboxSet(deps: ResourceProviderDeps, bbox: Bbox): Record<string, ResourceSet> {
-  const features = deps.index
-    .queryBbox(bbox)
-    .map((zone) => toFeature(zone, zoneSeverity(zone.props, deps.monitored)))
-  return {
-    'restricted-areas-viewport': resourceSet(
-      'Restricted Areas — Viewport',
-      'Restricted areas intersecting the requested viewport.',
-      features,
-      deps.attribution
-    )
-  }
+  return activitySets(deps.index.queryBbox(bbox), deps)
 }
 
 /** Resolve a dotted path against an object without pulling in lodash. */
@@ -257,7 +299,7 @@ export function makeResourceProvider(deps: ResourceProviderDeps): {
     getResource(id: string, property?: string): Promise<object> {
       const zone = findById(deps.index, id)
       if (!zone) return Promise.reject(new Error(`restricted area not found: ${id}`))
-      const feature = toFeature(zone, zoneSeverity(zone.props, deps.monitored))
+      const feature = toFeature(zone, zoneSeverity(zone.props, deps.displayActivities))
       if (property === undefined) return Promise.resolve(feature)
       const value = getPath(feature, property)
       if (value === undefined) {

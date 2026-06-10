@@ -10,7 +10,7 @@ import {
 import { normalizeProps, type Activity } from '../src/schema.js'
 
 const ATTRIBUTION = 'Data: ProtectedSeas Navigator (CC BY 4.0). ... ALWAYS VERIFY.'
-const MONITORED: readonly Activity[] = ['anchoring', 'entry']
+const DISPLAY_ACTIVITIES: readonly Activity[] = ['anchoring', 'entry']
 
 function square(lon: number, lat: number): Geometry {
   return {
@@ -62,7 +62,7 @@ function fakeIndex(zones: readonly IndexedZone[]): RestrictedAreasIndex {
 function provider(zones: readonly IndexedZone[]) {
   return makeResourceProvider({
     index: fakeIndex(zones),
-    monitored: MONITORED,
+    displayActivities: DISPLAY_ACTIVITIES,
     attribution: ATTRIBUTION
   })
 }
@@ -80,20 +80,38 @@ describe('makeResourceProvider — provider shape', () => {
   })
 })
 
-describe('listResources — default severity buckets', () => {
-  it('splits zones into prohibited / restricted / info ResourceSets', async () => {
+describe('listResources — per-activity layers', () => {
+  it('emits one ResourceSet per display activity plus an info set', async () => {
     const sets = await provider(ALL).methods.listResources({})
     const ids = Object.keys(sets)
-    expect(ids).toContain('restricted-areas-prohibited')
-    expect(ids).toContain('restricted-areas-restricted')
+    expect(ids).toContain('restricted-areas-anchoring')
+    expect(ids).toContain('restricted-areas-entry')
     expect(ids).toContain('restricted-areas-info')
 
-    const proh = sets['restricted-areas-prohibited'] as { values: FeatureCollection }
-    const rest = sets['restricted-areas-restricted'] as { values: FeatureCollection }
+    const anchoring = sets['restricted-areas-anchoring'] as { values: FeatureCollection }
+    const entry = sets['restricted-areas-entry'] as { values: FeatureCollection }
     const info = sets['restricted-areas-info'] as { values: FeatureCollection }
-    expect(proh.values.features.map((f) => f.id)).toEqual([zoneId('PROH1')])
-    expect(rest.values.features.map((f) => f.id)).toEqual([zoneId('REST1')])
+    // PROH1 prohibits anchoring -> anchoring layer; REST1 restricts entry -> entry layer.
+    expect(anchoring.values.features.map((f) => f.id)).toEqual([zoneId('PROH1')])
+    expect(entry.values.features.map((f) => f.id)).toEqual([zoneId('REST1')])
+    // INFO1 restricts neither displayed activity -> info catch-all.
     expect(info.values.features.map((f) => f.id)).toEqual([zoneId('INFO1')])
+  })
+
+  it('places a zone in EVERY activity layer it restricts', async () => {
+    // A zone that both prohibits anchoring and restricts entry shows in both.
+    const both = makeZone('BOTH1', { anchoring: 1, entry: 2 }, 5, 5)
+    const sets = await provider([both]).methods.listResources({})
+    const anchoring = sets['restricted-areas-anchoring'] as { values: FeatureCollection }
+    const entry = sets['restricted-areas-entry'] as { values: FeatureCollection }
+    expect(anchoring.values.features.map((f) => f.id)).toEqual([zoneId('BOTH1')])
+    expect(entry.values.features.map((f) => f.id)).toEqual([zoneId('BOTH1')])
+  })
+
+  it('only emits layers for the configured display activities', async () => {
+    const sets = await provider(ALL).methods.listResources({})
+    expect(Object.keys(sets)).not.toContain('restricted-areas-fishingCommercial')
+    expect(Object.keys(sets)).not.toContain('restricted-areas-diving')
   })
 
   it('every ResourceSet description ends with the attribution block', async () => {
@@ -103,21 +121,21 @@ describe('listResources — default severity buckets', () => {
     }
   })
 
-  it('tags each Feature with a styleRef matching its severity bucket', async () => {
+  it('styleRef reflects the level of THAT activity in THAT layer', async () => {
     const sets = (await provider(ALL).methods.listResources({})) as Record<
       string,
       { values: FeatureCollection }
     >
     const styleRefOf = (set: { values: FeatureCollection }): unknown =>
       set.values.features[0]?.properties?.styleRef
-    expect(styleRefOf(sets['restricted-areas-prohibited'])).toBe('prohibited')
-    expect(styleRefOf(sets['restricted-areas-restricted'])).toBe('restricted')
+    expect(styleRefOf(sets['restricted-areas-anchoring'])).toBe('prohibited') // PROH1 anchoring=1
+    expect(styleRefOf(sets['restricted-areas-entry'])).toBe('restricted') // REST1 entry=2
     expect(styleRefOf(sets['restricted-areas-info'])).toBe('info')
   })
 
-  it('uses Freeboard stroke/fill/width style keys per bucket', async () => {
+  it('uses Freeboard stroke/fill/width style keys', async () => {
     const sets = await provider(ALL).methods.listResources({})
-    const set = sets['restricted-areas-prohibited'] as {
+    const set = sets['restricted-areas-anchoring'] as {
       styles: Record<string, Record<string, unknown>>
     }
     for (const key of ['default', 'prohibited', 'restricted', 'info']) {
@@ -132,35 +150,39 @@ describe('listResources — default severity buckets', () => {
 
   it('carries the zone display props onto each Feature', async () => {
     const sets = await provider(ALL).methods.listResources({})
-    const proh = sets['restricted-areas-prohibited'] as { values: FeatureCollection }
-    const props = proh.values.features[0]?.properties
+    const anchoring = sets['restricted-areas-anchoring'] as { values: FeatureCollection }
+    const props = anchoring.values.features[0]?.properties
     expect(props?.name).toBe('Zone PROH1')
     expect(props?.restrictions).toMatchObject({ anchoring: 'prohibited' })
+    expect(props).toHaveProperty('description')
     expect(props).toHaveProperty('sourceUrls')
     expect(props).toHaveProperty('authority')
   })
 })
 
 describe('listResources — bbox query', () => {
-  it('returns a single filtered ResourceSet for a bbox string', async () => {
-    // bbox around the prohibited zone only (origin square).
+  it('returns per-activity sets filtered to the bbox', async () => {
+    // bbox around the prohibited (anchoring) zone only (origin square).
     const sets = await provider(ALL).methods.listResources({ bbox: '-1,-1,2,2' })
-    const ids = Object.keys(sets)
-    expect(ids).toHaveLength(1)
-    const set = sets[ids[0]] as { values: FeatureCollection; description: string }
-    expect(set.values.features.map((f) => f.id)).toEqual([zoneId('PROH1')])
-    expect(set.description.endsWith(ATTRIBUTION)).toBe(true)
+    const anchoring = sets['restricted-areas-anchoring'] as {
+      values: FeatureCollection
+      description: string
+    }
+    const entry = sets['restricted-areas-entry'] as { values: FeatureCollection }
+    expect(anchoring.values.features.map((f) => f.id)).toEqual([zoneId('PROH1')])
+    expect(entry.values.features).toHaveLength(0) // REST1 is outside the bbox
+    expect(anchoring.description.endsWith(ATTRIBUTION)).toBe(true)
   })
 
-  it('the bbox set still assigns severity-correct styleRefs', async () => {
+  it('the bbox set assigns the activity-correct styleRef', async () => {
     const sets = await provider(ALL).methods.listResources({ bbox: '9,9,12,12' })
-    const set = Object.values(sets)[0] as { values: FeatureCollection }
-    expect(set.values.features[0]?.properties?.styleRef).toBe('restricted')
+    const entry = sets['restricted-areas-entry'] as { values: FeatureCollection }
+    expect(entry.values.features[0]?.properties?.styleRef).toBe('restricted')
   })
 
-  it('falls back to buckets when bbox is not a parseable string', async () => {
+  it('falls back to the full per-activity listing when bbox is unparseable', async () => {
     const sets = await provider(ALL).methods.listResources({ bbox: 'not-a-bbox' })
-    expect(Object.keys(sets)).toContain('restricted-areas-prohibited')
+    expect(Object.keys(sets)).toContain('restricted-areas-anchoring')
   })
 })
 
