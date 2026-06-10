@@ -153,7 +153,7 @@ describe('ensureDataset — download + verify', () => {
     expect(status.localFiles).toEqual([join(dm.datasetDir, 'eu.display.fgb')])
     // Besides the configured region, only the persisted manifest (which keeps
     // the dataset date visible across offline restarts) may be written.
-    expect(await readdir(dm.datasetDir)).toEqual(['eu.display.fgb', 'manifest.json'])
+    expect((await readdir(dm.datasetDir)).sort()).toEqual(['eu.display.fgb', 'manifest.json'])
   })
 
   it('persists the manifest so the dataset date survives offline restarts', async () => {
