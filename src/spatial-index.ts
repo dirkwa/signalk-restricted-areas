@@ -17,7 +17,63 @@ import booleanPointInPolygon from '@turf/boolean-point-in-polygon'
 import type RBush from 'rbush' with { 'resolution-mode': 'import' }
 import type { Feature, FeatureCollection, Geometry, Polygon, Position } from 'geojson'
 
-import { normalizeProps, type RestrictedZoneProps } from './schema.js'
+import { normalizeProps, type Activity, type Level, type RestrictedZoneProps } from './schema.js'
+
+// FlatGeobuf columns are scalar-only, so the pipeline serializes these object/
+// array fields to JSON strings. Keep in sync with FGB_JSON_FIELDS in the data
+// repo's bin/normalize.mjs. The fallback is what we use if a field is missing
+// or unparseable.
+const FGB_JSON_FIELDS: Record<string, unknown> = {
+  restrictions: {},
+  raw: {},
+  sourceUrls: [],
+  siteVersion: { major: null, minor: null }
+}
+
+function parseJsonField(value: unknown, fallback: unknown): unknown {
+  if (typeof value !== 'string') return value ?? fallback
+  try {
+    return JSON.parse(value)
+  } catch {
+    return fallback
+  }
+}
+
+/**
+ * Reconstruct a RestrictedZoneProps from a FlatGeobuf feature's properties (the
+ * pipeline already normalized them and JSON-stringified the non-scalar fields).
+ * This is NOT the raw-Navigator path — it does not re-run normalizeProps.
+ */
+function restoreFromFgb(props: Record<string, unknown>, attribution: string): RestrictedZoneProps {
+  return {
+    siteId: typeof props.siteId === 'string' ? props.siteId : '',
+    name: typeof props.name === 'string' ? props.name : '(unnamed area)',
+    country: (props.country as string | null) ?? null,
+    state: (props.state as string | null) ?? null,
+    authority: (props.authority as string | null) ?? null,
+    designation: (props.designation as string | null) ?? null,
+    category: (props.category as string | null) ?? null,
+    categoryId: (props.categoryId as number | 'unknown' | undefined) ?? 'unknown',
+    wdpaId: (props.wdpaId as string | null) ?? null,
+    iucnCat: (props.iucnCat as string | null) ?? null,
+    lfp: (props.lfp as number | null) ?? null,
+    tribalExemption: (props.tribalExemption as boolean | null) ?? null,
+    restrictions: parseJsonField(props.restrictions, FGB_JSON_FIELDS.restrictions) as Partial<
+      Record<Activity, Level>
+    >,
+    raw: parseJsonField(props.raw, FGB_JSON_FIELDS.raw) as Record<string, Level>,
+    summary: (props.summary as string | null) ?? null,
+    sourceUrls: parseJsonField(props.sourceUrls, FGB_JSON_FIELDS.sourceUrls) as string[],
+    season: (props.season as string | null) ?? null,
+    effectiveFrom: (props.effectiveFrom as string | null) ?? null,
+    effectiveTo: (props.effectiveTo as string | null) ?? null,
+    siteVersion: parseJsonField(props.siteVersion, FGB_JSON_FIELDS.siteVersion) as {
+      major: number | null
+      minor: number | null
+    },
+    attribution
+  }
+}
 
 /** One RBush leaf: a tight bbox for a single component polygon, back-ref'd to its zone. */
 interface ComponentEntry {
@@ -59,23 +115,20 @@ export class SpatialIndex {
     this.zones = zones
   }
 
-  /**
-   * Build an index from an in-memory GeoJSON FeatureCollection. Features whose
-   * geometry is not Polygon/MultiPolygon, or which carry no siteId, are skipped.
-   */
-  static async fromFeatureCollection(
-    fc: FeatureCollection,
-    attribution: string
+  /** Shared builder: `toProps` maps a feature's raw properties to RestrictedZoneProps. */
+  private static async build(
+    features: FeatureCollection['features'],
+    toProps: (props: Record<string, unknown>) => RestrictedZoneProps
   ): Promise<SpatialIndex> {
     const { default: RBushCtor } = await import('rbush')
     const tree = new RBushCtor<ComponentEntry>()
     const zones = new Map<string, ZoneEntry>()
     const entries: ComponentEntry[] = []
 
-    for (const feature of fc.features) {
+    for (const feature of features) {
       const components = explode(feature.geometry)
       if (components.length === 0) continue
-      const props = normalizeProps(feature.properties ?? {}, attribution)
+      const props = toProps(feature.properties ?? {})
       if (props.siteId === '') continue
 
       // Later features with a duplicate siteId would overwrite the zone record but
@@ -96,13 +149,29 @@ export class SpatialIndex {
     return new SpatialIndex(tree, zones)
   }
 
-  /** Build an index from a FlatGeobuf file (production path). */
+  /**
+   * Build an index from an in-memory GeoJSON FeatureCollection of RAW Navigator
+   * features (properties run through `normalizeProps`). Used for dev fixtures and
+   * tests. Features without Polygon/MultiPolygon geometry or a siteId are skipped.
+   */
+  static async fromFeatureCollection(
+    fc: FeatureCollection,
+    attribution: string
+  ): Promise<SpatialIndex> {
+    return SpatialIndex.build(fc.features, (props) => normalizeProps(props, attribution))
+  }
+
+  /**
+   * Build an index from a FlatGeobuf file (production path). The FGB carries
+   * already-normalized properties with the non-scalar fields JSON-encoded, so it
+   * uses the restore path, NOT normalizeProps.
+   */
   static async fromFlatGeobufFile(filePath: string, attribution: string): Promise<SpatialIndex> {
     const { readFile } = await import('node:fs/promises')
     const { deserialize } = await import('flatgeobuf/lib/mjs/geojson.js')
     const buffer = await readFile(filePath)
     const fc = deserialize(new Uint8Array(buffer))
-    return SpatialIndex.fromFeatureCollection(fc, attribution)
+    return SpatialIndex.build(fc.features, (props) => restoreFromFgb(props, attribution))
   }
 
   /**
@@ -122,7 +191,7 @@ export class SpatialIndex {
       const fc = deserialize(new Uint8Array(buffer))
       features.push(...fc.features)
     }
-    return SpatialIndex.fromFeatureCollection({ type: 'FeatureCollection', features }, attribution)
+    return SpatialIndex.build(features, (props) => restoreFromFgb(props, attribution))
   }
 
   /** Number of distinct zones (not components) in the index. */

@@ -1,6 +1,10 @@
 import { readFileSync } from 'node:fs'
+import { writeFile, mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, it, expect, beforeAll } from 'vitest'
+import { serialize } from 'flatgeobuf/lib/mjs/geojson.js'
 import type { FeatureCollection } from 'geojson'
 
 import { SpatialIndex } from '../src/spatial-index.js'
@@ -144,5 +148,61 @@ describe('SpatialIndex', () => {
     const empty = await SpatialIndex.fromFeatureCollection(fc, ATTR)
     expect(empty.size()).toBe(0)
     expect(empty.queryPoint(0.5, 0.5)).toEqual([])
+  })
+})
+
+describe('FlatGeobuf round-trip (un-flatten normalized props)', () => {
+  it('parses JSON-encoded non-scalar fields back from a real FGB', async () => {
+    // Shape the pipeline writes: already-normalized props with the non-scalar
+    // fields JSON-stringified so FlatGeobuf's scalar-only columns accept them.
+    const fc: FeatureCollection = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: {
+            siteId: 'FGB1',
+            name: 'Round Trip Reserve',
+            categoryId: 1,
+            lfp: 4,
+            restrictions: JSON.stringify({ anchoring: 'prohibited', entry: 'restricted' }),
+            raw: JSON.stringify({ anchoring: 'prohibited' }),
+            sourceUrls: JSON.stringify(['https://example.org/reg']),
+            siteVersion: JSON.stringify({ major: 2, minor: 1 })
+          },
+          geometry: {
+            type: 'Polygon',
+            coordinates: [
+              [
+                [10, 10],
+                [11, 10],
+                [11, 11],
+                [10, 11],
+                [10, 10]
+              ]
+            ]
+          }
+        }
+      ]
+    }
+
+    const dir = await mkdtemp(path.join(tmpdir(), 'ra-fgb-'))
+    const fgbPath = path.join(dir, 'round-trip.fgb')
+    try {
+      await writeFile(fgbPath, Buffer.from(serialize(fc)))
+      const index = await SpatialIndex.fromFlatGeobufFile(fgbPath, ATTR)
+      expect(index.size()).toBe(1)
+      const [zone] = index.allZones()
+      expect(zone.siteId).toBe('FGB1')
+      // Non-scalar fields are real objects/arrays again, not strings.
+      expect(zone.restrictions.anchoring).toBe('prohibited')
+      expect(zone.restrictions.entry).toBe('restricted')
+      expect(zone.sourceUrls).toEqual(['https://example.org/reg'])
+      expect(zone.siteVersion).toEqual({ major: 2, minor: 1 })
+      // A point inside the polygon hits the zone.
+      expect(index.queryPoint(10.5, 10.5).map((z) => z.siteId)).toEqual(['FGB1'])
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
   })
 })
