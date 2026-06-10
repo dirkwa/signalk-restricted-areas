@@ -6,8 +6,13 @@
   "type": "commonjs",
   "files": [
     "plugin/",
+    "app-icon.svg",
     "README.md"
   ],
+  "signalk": {
+    "displayName": "Restricted Areas",
+    "appIcon": "./app-icon.svg"
+  },
   "scripts": {
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" && eslint --fix \"src/**/*.ts\" \"test/**/*.ts\"",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
