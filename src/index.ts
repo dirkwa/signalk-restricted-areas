@@ -14,15 +14,22 @@ import { GeofenceEngine, type ZoneIndex, type ZoneHit } from './geofence.js'
 
 const PLUGIN_ID = 'signalk-restricted-areas'
 
+// Geographic ocean-basin regions. Must match the slugs the data pipeline
+// publishes (restricted-areas-data/regions/regions.geojson). The actual enum the
+// admin UI shows is also populated from the dataset manifest at config time.
 const REGION_SLUGS = [
   'sw-pacific',
   'ne-pacific',
   'se-pacific',
+  'nw-pacific',
   'nw-atlantic',
   'ne-atlantic',
+  'south-atlantic',
   'caribbean',
   'mediterranean',
-  'indian-ocean'
+  'north-europe',
+  'indian-ocean',
+  'southern-ocean'
 ] as const
 
 interface Config {
