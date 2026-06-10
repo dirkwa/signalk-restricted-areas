@@ -233,7 +233,20 @@ export class DataManager {
     const message = ok
       ? `offline: serving ${localFiles.length.toString()} local file(s) (${reason})`
       : `no local dataset and ${reason}`
-    return { ok, message, localFiles }
+    // Surface the locally-staged manifest (version + attribution dates) when present.
+    const manifest = await this.readLocalManifest()
+    return { ok, message, localFiles, manifest }
+  }
+
+  /** Read a previously-downloaded/staged manifest.json from the dataset dir, if any. */
+  private async readLocalManifest(): Promise<Manifest | undefined> {
+    try {
+      const { readFile } = await import('node:fs/promises')
+      const raw = await readFile(join(this.datasetDir, 'manifest.json'), 'utf8')
+      return JSON.parse(raw) as Manifest
+    } catch {
+      return undefined
+    }
   }
 }
 

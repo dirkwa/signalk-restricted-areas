@@ -12,9 +12,31 @@
 import { v5 as uuidv5 } from 'uuid'
 import type { Feature, FeatureCollection, Geometry } from 'geojson'
 import type { ResourceProviderMethods } from '@signalk/server-api'
-import { type Activity, type Severity, zoneSeverity, type RestrictedZoneProps } from './schema.js'
+import {
+  type Activity,
+  type Level,
+  type Severity,
+  zoneSeverity,
+  type RestrictedZoneProps
+} from './schema.js'
 
 export const RESOURCE_TYPE = 'restricted-areas'
+
+/** Human labels for the coarse activities, for popup text. */
+const ACTIVITY_LABELS: Record<Activity, string> = {
+  anchoring: 'anchoring',
+  mooring: 'mooring',
+  entry: 'entry/transit',
+  speed: 'speed',
+  diving: 'diving',
+  discharge: 'discharge',
+  dredging: 'dredging',
+  removalOfArtifacts: 'removal of artifacts',
+  fishingRecreational: 'recreational fishing',
+  fishingCommercial: 'commercial fishing',
+  fishingArtisanal: 'artisanal fishing',
+  fishing: 'fishing'
+}
 
 /** Fixed namespace so a zone's resource id is stable across restarts/hosts. */
 const ID_NAMESPACE = 'b9f4d6e2-7c3a-4f1b-9e2d-5a8c1f0b3e7a'
@@ -84,11 +106,42 @@ function bucketSetId(severity: Severity): string {
   return `restricted-areas-${severity}`
 }
 
+/** Activities listed at a given level, formatted for a human-readable line. */
+function activitiesAtLevel(
+  restrictions: RestrictedZoneProps['restrictions'],
+  level: Level
+): string[] {
+  return (Object.keys(restrictions) as Activity[])
+    .filter((a) => restrictions[a] === level)
+    .map((a) => ACTIVITY_LABELS[a])
+}
+
+/**
+ * A readable popup body. Freeboard renders `properties.description` in the
+ * feature popup, so the salient facts go there (name/restrictions/authority);
+ * the structured fields stay alongside for programmatic clients.
+ */
+function featureDescription(zone: RestrictedZoneProps): string {
+  const lines: string[] = []
+  const prohibited = activitiesAtLevel(zone.restrictions, 'prohibited')
+  const restricted = activitiesAtLevel(zone.restrictions, 'restricted')
+  if (prohibited.length > 0) lines.push(`Prohibited: ${prohibited.join(', ')}.`)
+  if (restricted.length > 0) lines.push(`Restricted: ${restricted.join(', ')}.`)
+  if (zone.summary) lines.push(zone.summary)
+  const meta = [zone.authority, zone.country].filter(Boolean).join(', ')
+  if (meta) lines.push(meta)
+  if (zone.lfp !== null) lines.push(`Level of Fishing Protection: ${zone.lfp}/5.`)
+  if (zone.sourceUrls.length > 0) lines.push(`Source: ${zone.sourceUrls[0]}`)
+  return lines.join('\n')
+}
+
 /** The subset of display props Freeboard surfaces in a feature popup. */
 function featureProps(zone: RestrictedZoneProps, styleRef: Severity): Record<string, unknown> {
   return {
     styleRef,
     name: zone.name,
+    // Freeboard's popup shows `description`; keep the structured fields too.
+    description: featureDescription(zone),
     summary: zone.summary,
     sourceUrls: zone.sourceUrls,
     country: zone.country,
