@@ -151,7 +151,34 @@ describe('ensureDataset — download + verify', () => {
     const status = await dm.ensureDataset()
 
     expect(status.localFiles).toEqual([join(dm.datasetDir, 'eu.display.fgb')])
-    expect(await readdir(dm.datasetDir)).toEqual(['eu.display.fgb'])
+    // Besides the configured region, only the persisted manifest (which keeps
+    // the dataset date visible across offline restarts) may be written.
+    expect(await readdir(dm.datasetDir)).toEqual(['eu.display.fgb', 'manifest.json'])
+  })
+
+  it('persists the manifest so the dataset date survives offline restarts', async () => {
+    const eu = fakeFgb('eu')
+    const manifest = manifestFor([{ name: 'eu.display.fgb', region: 'eu', bytes: eu }])
+    globalThis.fetch = mockGitHub({ manifest, bytesByName: { 'eu.display.fgb': eu } })
+
+    const dm = new DataManager({ dataRepo: 'o/r', regions: ['eu'], dataDir, autoUpdate: true })
+    await dm.ensureDataset()
+
+    const persisted = JSON.parse(
+      (await readFile(join(dm.datasetDir, 'manifest.json'))).toString()
+    ) as { datasetDate?: string }
+    expect(persisted.datasetDate).toBe('2026-05-28')
+
+    // A later offline start (auto-update off ≙ unreachable network path)
+    // surfaces the persisted manifest, so users still see the extract date.
+    const offline = new DataManager({
+      dataRepo: 'o/r',
+      regions: ['eu'],
+      dataDir,
+      autoUpdate: false
+    })
+    const status = await offline.ensureDataset()
+    expect(status.manifest?.datasetDate).toBe('2026-05-28')
   })
 
   it('rejects a corrupted asset (sha256 mismatch) and does not place it', async () => {
