@@ -214,12 +214,13 @@ function buildSchema(): object {
 }
 
 /**
- * Render the multi-select enum arrays as inline checkbox groups in the admin UI
+ * Render the multi-select enum arrays as stacked checkbox groups in the admin UI
  * (react-jsonschema-form's `checkboxes` widget) instead of the default
- * multi-select scroll box, which is fiddly to use.
+ * multi-select scroll box. One checkbox per row (`inline: false`) so each option
+ * has room for its full label and is easy to click; the panel scrolls.
  */
 function buildUiSchema(): object {
-  const checkboxes = { 'ui:widget': 'checkboxes', 'ui:options': { inline: true } }
+  const checkboxes = { 'ui:widget': 'checkboxes', 'ui:options': { inline: false } }
   return {
     regions: checkboxes,
     displayActivities: checkboxes,
