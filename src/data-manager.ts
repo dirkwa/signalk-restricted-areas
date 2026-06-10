@@ -277,7 +277,10 @@ async function regionFiles(dir: string, region: string): Promise<string[]> {
   } catch {
     return []
   }
-  const forRegion = names.filter((n) => n.endsWith('.fgb') && n.includes(region))
+  // Match `<region>.fgb` / `<region>.display.fgb` by exact prefix — `includes`
+  // would let one region's file match another whose name is a substring
+  // (e.g. region "ne-pacific" must not pick up "se-pacific.fgb").
+  const forRegion = names.filter((n) => n.startsWith(`${region}.`) && n.endsWith('.fgb'))
   const display = forRegion.filter((n) => n.endsWith('.display.fgb'))
   const chosen = display.length > 0 ? display : forRegion
   return chosen.map((n) => join(dir, n))

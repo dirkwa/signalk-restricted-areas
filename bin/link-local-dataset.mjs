@@ -4,10 +4,10 @@
  * dist/) into the plugin's Signal K data dir so the plugin can serve it without
  * a published GitHub release. For local testing / M0 — no network, no publish.
  *
- * It copies only the FULL .fgb variants (the plugin's offline loader globs by
- * region name and would otherwise also pick up <region>.display.fgb, loading
- * every zone twice), and writes a minimal manifest.json so attribution dates
- * surface in the plugin status.
+ * It copies only the DISPLAY .fgb variants, staging each as <region>.fgb (the
+ * plugin renders display geometry; the full variant would hand chart clients
+ * hundreds of MB of dense polygons). Writes a minimal manifest.json so the
+ * attribution dates surface in the plugin status.
  *
  * IMPORTANT: the plugin reads from app.getDataDirPath(), which for a plugin is
  *   <sk-config-dir>/plugin-config-data/<plugin-id>/restricted-areas
