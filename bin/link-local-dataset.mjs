@@ -9,17 +9,25 @@
  * every zone twice), and writes a minimal manifest.json so attribution dates
  * surface in the plugin status.
  *
+ * IMPORTANT: the plugin reads from app.getDataDirPath(), which for a plugin is
+ *   <sk-config-dir>/plugin-config-data/<plugin-id>/restricted-areas
+ * NOT the config dir root. Pass --sk-config-dir (the dir you start the server
+ * with via `-c`) and this script writes to the correct subpath.
+ *
  * Usage:
  *   node bin/link-local-dataset.mjs \
  *     --dist /home/dirk/dev/restricted-areas-data/dist \
- *     --data-dir ~/.signalk-restricted
+ *     --sk-config-dir ~/.signalk-restricted
  *
- * Then in the plugin config set autoUpdate=false and regions to the basins you
- * copied (the script prints the list), and restart the server.
+ * Then set the plugin config autoUpdate=false and regions to the basins copied
+ * (the script prints the list), and reload the plugin (toggle it off/on or
+ * restart the server).
  */
 import { readdir, mkdir, copyFile, readFile, writeFile } from 'node:fs/promises'
 import { join, basename } from 'node:path'
 import { homedir } from 'node:os'
+
+const PLUGIN_ID = 'signalk-restricted-areas'
 
 function parseArgs(argv) {
   const out = {}
@@ -29,7 +37,7 @@ function parseArgs(argv) {
     out[k.slice(2)] = argv[i + 1]
   }
   if (!out.dist) throw new Error('missing required --dist')
-  if (!out['data-dir']) throw new Error('missing required --data-dir')
+  if (!out['sk-config-dir']) throw new Error('missing required --sk-config-dir')
   return out
 }
 
@@ -45,7 +53,13 @@ function isFullFgb(name) {
 async function main() {
   const args = parseArgs(process.argv.slice(2))
   const dist = expandHome(args.dist)
-  const dest = join(expandHome(args['data-dir']), 'restricted-areas')
+  // Mirror app.getDataDirPath(): <sk-config>/plugin-config-data/<plugin-id>.
+  const dest = join(
+    expandHome(args['sk-config-dir']),
+    'plugin-config-data',
+    PLUGIN_ID,
+    'restricted-areas'
+  )
   await mkdir(dest, { recursive: true })
 
   const fgbs = (await readdir(dist)).filter(isFullFgb)
