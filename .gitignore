@@ -11,3 +11,6 @@ plugin/
 
 # Local CodeRabbit review artifacts (saved per workflow rule).
 cr-review*.txt
+
+# Local scratch (cr output, release verification downloads) — never committed
+.scratch/

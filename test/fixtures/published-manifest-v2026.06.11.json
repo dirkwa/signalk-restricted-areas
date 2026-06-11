@@ -1,0 +1,387 @@
+{
+  "version": "v2026.06.11",
+  "datasetDate": "2026-05-28",
+  "downloadDate": "2026-06-02",
+  "generatedFrom": "mirror, seeded from local seed from the 2026-05-28 bulk download (raw zip never uploaded), last sweep never",
+  "license": "CC BY 4.0",
+  "citations": [
+    "Zetterlind, V. et al. (2025). Navigator - a global database of verified marine protected and managed area regulations and boundaries. Scientific Data, 12, 1212. https://doi.org/10.1038/s41597-025-05535-2",
+    "The ProtectedSeas Navigator Map of Conservation Regulations, ProtectedSeas®, https://map.navigatormap.org (last visited 2026-05-28).",
+    "Navigator Data Download, ProtectedSeas®. https://navigatormap.org/data-request (downloaded 2026-06-02)."
+  ],
+  "disclaimer": "This is summary data and may be incomplete, inaccurate, or out of date. It is NOT a legal or compliance document. Provided \"as-is\". Always verify against official sources before relying on it for navigation or compliance.",
+  "attribution": "Data: ProtectedSeas Navigator (CC BY 4.0). Zetterlind, V. et al. (2025). Navigator - a global database of verified marine protected and managed area regulations and boundaries. Scientific Data, 12, 1212. https://doi.org/10.1038/s41597-025-05535-2 The ProtectedSeas Navigator Map of Conservation Regulations, ProtectedSeas®, https://map.navigatormap.org (last visited 2026-05-28). Navigator Data Download, ProtectedSeas®. https://navigatormap.org/data-request (downloaded 2026-06-02). This is summary data and may be incomplete, inaccurate, or out of date. It is NOT a legal or compliance document. Provided \"as-is\". Always verify against official sources before relying on it for navigation or compliance.",
+  "regions": [
+    {
+      "region": "caribbean",
+      "assets": [
+        {
+          "name": "caribbean.fgb",
+          "size": 138756432,
+          "sha256": "f9fd86968682265b87b48a4fcb8086af9108f0bcb8922a313d73d6062d78a079",
+          "bbox": [
+            -99.17151728892988,
+            4.471615400226091,
+            -55.45988358377441,
+            33.853889763844485
+          ],
+          "featureCount": 11157
+        },
+        {
+          "name": "caribbean.display.fgb",
+          "size": 43840528,
+          "sha256": "3fede5e7a4d3770abaf9495784aa5fe8ee454fa79ff2c653382135a2be1b7e2f",
+          "bbox": [
+            -99.17151728892988,
+            4.471615400226091,
+            -55.45988358377441,
+            33.853889763844485
+          ],
+          "featureCount": 11157
+        }
+      ]
+    },
+    {
+      "region": "indian-ocean",
+      "assets": [
+        {
+          "name": "indian-ocean.fgb",
+          "size": 27424288,
+          "sha256": "8e1c420c6060d995322164f925b5e5fa5d980640dbc43e533e4a22eff89e86b1",
+          "bbox": [
+            19.99953599980469,
+            -50.233333332497125,
+            120.33333333311845,
+            46.363913516430436
+          ],
+          "featureCount": 2164
+        },
+        {
+          "name": "indian-ocean.display.fgb",
+          "size": 12207016,
+          "sha256": "4c49902e74ece99d7df30fb76f53063a3b3a7501554c7bf30edc4465f78e0660",
+          "bbox": [
+            19.99953599980469,
+            -50.233333332497125,
+            120.33333333311845,
+            46.363913516430436
+          ],
+          "featureCount": 2164
+        }
+      ]
+    },
+    {
+      "region": "mediterranean",
+      "assets": [
+        {
+          "name": "mediterranean.fgb",
+          "size": 431716752,
+          "sha256": "07401c6f5b67c8608885abbdabe94d9f29948e10d2fc99afb78b28eb6a482722",
+          "bbox": [
+            -10.999999939579238,
+            30.633333321531016,
+            42.08482027734069,
+            49.01357365334017
+          ],
+          "featureCount": 12148
+        },
+        {
+          "name": "mediterranean.display.fgb",
+          "size": 53297872,
+          "sha256": "a476eecb791652b50128ad45d78a9a75534334401d66209372f80bc6c1e33e59",
+          "bbox": [
+            -10.999999939579238,
+            30.633333321531016,
+            42.08482027734069,
+            49.01357365334017
+          ],
+          "featureCount": 12148
+        }
+      ]
+    },
+    {
+      "region": "ne-atlantic",
+      "assets": [
+        {
+          "name": "ne-atlantic.fgb",
+          "size": 36690536,
+          "sha256": "fa9b23c54b6cd0faf6275359dc6c9651cace1822d702837c0ffd3b75429a3473",
+          "bbox": [
+            -32.30000013094978,
+            10.607222219824605,
+            -10.72500000037857,
+            66.46950043498734
+          ],
+          "featureCount": 1440
+        },
+        {
+          "name": "ne-atlantic.display.fgb",
+          "size": 6979488,
+          "sha256": "d4cdb2f7bbbad109b29ccc41e5981d2626d400caed1aeb1ac7fdf7fda9fa474c",
+          "bbox": [
+            -32.30000013094978,
+            10.607222219824605,
+            -10.72500000037857,
+            66.46950043498734
+          ],
+          "featureCount": 1440
+        }
+      ]
+    },
+    {
+      "region": "ne-pacific",
+      "assets": [
+        {
+          "name": "ne-pacific.fgb",
+          "size": 213275608,
+          "sha256": "c796334c1d8666880162c3e8fea6afde5f395532685bd25f932a53416489dcac",
+          "bbox": [
+            -179.99998854118687,
+            10.084241999736257,
+            -98.31925000290549,
+            76.8476425189235
+          ],
+          "featureCount": 11779
+        },
+        {
+          "name": "ne-pacific.display.fgb",
+          "size": 64304176,
+          "sha256": "63b951cf03f465a9d91deb696ec22e68fc7af235619374c3c80a998323bc035f",
+          "bbox": [
+            -179.99998854118687,
+            10.084241999736257,
+            -98.31925000290549,
+            76.8476425189235
+          ],
+          "featureCount": 11779
+        }
+      ]
+    },
+    {
+      "region": "north-europe",
+      "assets": [
+        {
+          "name": "north-europe.fgb",
+          "size": 683514736,
+          "sha256": "9da0cd69c09488808edc2dfe705cf2807e242fbf6165f9a6d76be0a522ec72e4",
+          "bbox": [
+            -16.000000000068468,
+            47.077424999727654,
+            101.13974300069572,
+            81.0280175402884
+          ],
+          "featureCount": 36827
+        },
+        {
+          "name": "north-europe.display.fgb",
+          "size": 117673336,
+          "sha256": "abf85c4b2fa452100f731f3efeacec38102ea623c0f234d4ac4e38f33b8f87a2",
+          "bbox": [
+            -16.000000000068468,
+            47.077424999727654,
+            101.13974300069572,
+            81.0280175402884
+          ],
+          "featureCount": 36827
+        }
+      ]
+    },
+    {
+      "region": "nw-atlantic",
+      "assets": [
+        {
+          "name": "nw-atlantic.fgb",
+          "size": 364667104,
+          "sha256": "39fdcff55c80eec970aebb9763aa562c8148a355ffe21e818823b06a3e1e0fa9",
+          "bbox": [
+            -101.18767059596208,
+            28.349998399995954,
+            -20.000000000310187,
+            83.1511366339769
+          ],
+          "featureCount": 14356
+        },
+        {
+          "name": "nw-atlantic.display.fgb",
+          "size": 68096312,
+          "sha256": "520d7a21cab82dda836cb4d74379e53b6520da1b88591f68b71fa7450329d374",
+          "bbox": [
+            -101.18767059596208,
+            28.349998399995954,
+            -20.000000000310187,
+            83.1511366339769
+          ],
+          "featureCount": 14356
+        }
+      ]
+    },
+    {
+      "region": "nw-pacific",
+      "assets": [
+        {
+          "name": "nw-pacific.fgb",
+          "size": 159112336,
+          "sha256": "200a6b8099e70b3c07c88c0cc4cc4b727128878101f459d70740821a7c5abfa7",
+          "bbox": [
+            99.97826341811201,
+            -10.916111110960392,
+            179.84754101489054,
+            77.68315699987375
+          ],
+          "featureCount": 14669
+        },
+        {
+          "name": "nw-pacific.display.fgb",
+          "size": 63669640,
+          "sha256": "ec9de7803610a6110b63e8afc19b1810bebc328e7d9421034e58347afe84b5d2",
+          "bbox": [
+            99.97826341811201,
+            -10.916111110960392,
+            179.84754101489054,
+            77.68315699987375
+          ],
+          "featureCount": 14669
+        }
+      ]
+    },
+    {
+      "region": "se-pacific",
+      "assets": [
+        {
+          "name": "se-pacific.fgb",
+          "size": 35839288,
+          "sha256": "95e9d4ab9734e1ae96ccd923258ec09c6475936ee6260f786c6890504b41bc40",
+          "bbox": [
+            -109.45484967162858,
+            -49.40781812224058,
+            -58.88815751927699,
+            5.000000000227506
+          ],
+          "featureCount": 2323
+        },
+        {
+          "name": "se-pacific.display.fgb",
+          "size": 8359312,
+          "sha256": "293e107c649d0fb41a0dcacd0ad9726c103569acf83551b3c4bcd1ff64749c85",
+          "bbox": [
+            -109.45484967162858,
+            -49.40781812224058,
+            -58.88815751927699,
+            5.000000000227506
+          ],
+          "featureCount": 2323
+        }
+      ]
+    },
+    {
+      "region": "south-atlantic",
+      "assets": [
+        {
+          "name": "south-atlantic.fgb",
+          "size": 8458120,
+          "sha256": "d7aabda38bef9142bae97915db7cd8703210151fbcd6e59dcd4429db3c02f340",
+          "bbox": [
+            -61.270115414614615,
+            -48.000000058395486,
+            20.024160420743605,
+            9.545023366318954
+          ],
+          "featureCount": 498
+        },
+        {
+          "name": "south-atlantic.display.fgb",
+          "size": 2281752,
+          "sha256": "c95a5d9020924c42460b1fd16e668cbb2a72dac761dc5ede35c3697316fd1d31",
+          "bbox": [
+            -61.270115414614615,
+            -48.000000058395486,
+            20.024160420743605,
+            9.545023366318954
+          ],
+          "featureCount": 498
+        }
+      ]
+    },
+    {
+      "region": "southern-ocean",
+      "assets": [
+        {
+          "name": "southern-ocean.fgb",
+          "size": 7522184,
+          "sha256": "92c8f630e13065ac11221513b6e967bf2484080055814b3d3e59622e0b4c46d1",
+          "bbox": [
+            -72.67899999852379,
+            -60.000000648052016,
+            173.68333333292853,
+            -50.021971316432925
+          ],
+          "featureCount": 935
+        },
+        {
+          "name": "southern-ocean.display.fgb",
+          "size": 3329496,
+          "sha256": "04030eaa396e6508f7f048f91eef13dd178a79790633867f6f54115d3777dbfb",
+          "bbox": [
+            -72.67899999852379,
+            -60.000000648052016,
+            173.68333333292853,
+            -50.021971316432925
+          ],
+          "featureCount": 935
+        }
+      ]
+    },
+    {
+      "region": "sw-pacific",
+      "assets": [
+        {
+          "name": "sw-pacific.fgb",
+          "size": 190101464,
+          "sha256": "010c02cd42fb2956132175393987be2b74181474a93ae79bbea2bcaf82e644e3",
+          "bbox": [
+            -179.99998854118687,
+            -49.9194471663355,
+            179.99998854118684,
+            6.63058830219916
+          ],
+          "featureCount": 14972
+        },
+        {
+          "name": "sw-pacific.display.fgb",
+          "size": 67365776,
+          "sha256": "99d60091768f6a84259558bad52be8d1f4b406888d637a01c66fc30e833741b6",
+          "bbox": [
+            -179.99998854118687,
+            -49.9194471663355,
+            179.99998854118684,
+            6.63058830219916
+          ],
+          "featureCount": 14972
+        }
+      ]
+    }
+  ],
+  "exclusions": {
+    "drops": {
+      "categoryId": 538,
+      "areaWithoutHardBan": 315,
+      "bboxSpanWithoutHardBan": 19,
+      "partition": 0
+    },
+    "counts": {
+      "featuresIn": 27354,
+      "kept": 26482,
+      "componentsFull": 123268,
+      "componentsDisplay": 123268,
+      "simplifyFallbacks": 1
+    },
+    "partitions": [
+      "Navigator_AllSites_GlobalEEZs_LFP0_052826",
+      "Navigator_AllSites_GlobalEEZs_LFP1_052826",
+      "Navigator_AllSites_GlobalEEZs_LFP2_052826",
+      "Navigator_AllSites_GlobalEEZs_LFP3_052826",
+      "Navigator_AllSites_GlobalEEZs_LFP4_052826",
+      "Navigator_AllSites_GlobalEEZs_LFP5_052826"
+    ]
+  }
+}

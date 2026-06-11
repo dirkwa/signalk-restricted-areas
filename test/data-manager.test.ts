@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   DataManager,
   atomicWrite,
+  selectAssets,
   sha256Bytes,
   sha256File,
   type Manifest
@@ -28,19 +30,25 @@ async function seedLocal(dm: DataManager, name: string, bytes: Uint8Array): Prom
   return path
 }
 
+/** Build a manifest in the REAL published shape: assets nested per region. */
 function manifestFor(assets: { name: string; region: string; bytes: Uint8Array }[]): Manifest {
-  return {
-    version: 'v2026.05',
-    datasetDate: '2026-05-28',
-    downloadDate: '2026-06-01',
-    assets: assets.map((a) => ({
+  const regions = new Map<string, Manifest['regions'][number]>()
+  for (const a of assets) {
+    const entry = regions.get(a.region) ?? { region: a.region, assets: [] }
+    entry.assets.push({
       name: a.name,
       size: a.bytes.byteLength,
       sha256: sha(a.bytes),
       bbox: [-10, 30, 5, 45],
-      featureCount: 3,
-      region: a.region
-    }))
+      featureCount: 3
+    })
+    regions.set(a.region, entry)
+  }
+  return {
+    version: 'v2026.05',
+    datasetDate: '2026-05-28',
+    downloadDate: '2026-06-01',
+    regions: [...regions.values()]
   }
 }
 
@@ -58,10 +66,9 @@ function mockGitHub(opts: {
   const releaseJson = {
     assets: [
       { name: 'manifest.json', browser_download_url: `${base}manifest.json` },
-      ...opts.manifest.assets.map((a) => ({
-        name: a.name,
-        browser_download_url: `${base}${a.name}`
-      }))
+      ...opts.manifest.regions
+        .flatMap((r) => r.assets)
+        .map((a) => ({ name: a.name, browser_download_url: `${base}${a.name}` }))
     ]
   }
   return vi.fn((url: string) => {
@@ -255,5 +262,33 @@ describe('ensureDataset — offline-first', () => {
     expect(status.ok).toBe(true)
     expect(status.localFiles).toEqual([placed])
     expect(status.message).toContain('auto-update disabled')
+  })
+})
+
+describe('REGRESSION: the real published manifest shape (regions[].assets)', () => {
+  // The first live auto-update crashed with "Cannot read properties of
+  // undefined (reading 'filter')": the code expected a flat manifest.assets
+  // array, but make-manifest.mjs nests assets per region. This fixture is the
+  // verbatim v2026.06.11 manifest from the public release.
+  const real = JSON.parse(
+    readFileSync(join(__dirname, 'fixtures', 'published-manifest-v2026.06.11.json'), 'utf8')
+  ) as Manifest
+
+  it('selects the display variant of exactly the configured regions', () => {
+    const one = selectAssets(real, ['sw-pacific'])
+    expect(one.map((a) => a.name)).toEqual(['sw-pacific.display.fgb'])
+    expect(one[0].sha256).toMatch(/^[0-9a-f]{64}$/)
+
+    const two = selectAssets(real, ['sw-pacific', 'mediterranean'])
+    expect(two.map((a) => a.name).sort()).toEqual([
+      'mediterranean.display.fgb',
+      'sw-pacific.display.fgb'
+    ])
+    expect(selectAssets(real, [])).toEqual([])
+  })
+
+  it('carries the dataset date users must see', () => {
+    expect(real.datasetDate).toBe('2026-05-28')
+    expect(real.version).toBe('v2026.06.11')
   })
 })
