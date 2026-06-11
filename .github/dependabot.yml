@@ -4,6 +4,12 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    # Deterministic Angular prefix: dependabot otherwise guesses from repo
+    # history (it picked build(deps):), which would dodge the chore(deps):
+    # review-skip rule in .coderabbit.yaml.
+    commit-message:
+      prefix: "chore"
+      include: scope
     groups:
       minor-and-patch:
         update-types:
@@ -20,6 +26,9 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    commit-message:
+      prefix: "chore"
+      include: scope
     groups:
       actions:
         update-types:
