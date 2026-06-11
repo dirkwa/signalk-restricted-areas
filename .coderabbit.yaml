@@ -1,0 +1,176 @@
+language: en-US
+
+reviews:
+  profile: assertive
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    drafts: false
+    # Skip mechanical PRs that don't benefit from review.
+    # `chore(release):` PRs are version-bump-only; the substantive
+    # change was already reviewed on its own PR. Dep-bump PRs come from
+    # automation that has its own contract with the registry. WIP and
+    # explicit skip markers are author opt-outs.
+    ignore_title_keywords:
+      - "chore(release):"
+      - "chore(deps):"
+      - "chore(deps-dev):"
+      - "[skip review]"
+      - "WIP"
+    ignore_usernames:
+      - "release-please[bot]"
+      - "renovate[bot]"
+      - "dependabot[bot]"
+      - "github-actions[bot]"
+
+  # plugin/ is gitignored tsc output; fixtures are captured real-world
+  # payloads (a published release manifest, live Navigator API responses)
+  # pinned verbatim for regression tests — not authored code.
+  path_filters:
+    - "!plugin/**"
+    - "!**/node_modules/**"
+    - "!**/package-lock.json"
+    - "!**/yarn.lock"
+    - "!**/pnpm-lock.yaml"
+    - "!test/fixtures/**"
+
+  high_level_summary_instructions: |
+    Write summaries in present tense. Describe what the code does, not
+    what it did. Skip filler like "This PR" — go straight to the change.
+
+  path_instructions:
+    - path: "**/*"
+      instructions: |
+        ## Scope
+
+        Focus on files changed since `master`. Think about how changes
+        interact with existing code, tests, and documentation — not just
+        the diff in isolation.
+
+        signalk-restricted-areas is a **Signal K server plugin** that
+        serves marine restricted-area data (ProtectedSeas Navigator,
+        CC BY 4.0) to chart clients — primarily Freeboard-SK — via the
+        Signal K Resources API, and runs **server-side geofencing** that
+        emits notifications when the vessel approaches or enters a
+        restricted zone. The dataset is produced by the companion repo
+        `dirkwa/restricted-areas-data` and consumed as FlatGeobuf
+        release assets. This is SAFETY-ADJACENT software: a wrong decode
+        fires anchoring/entry alarms on the wrong zones.
+
+        ## ⚠️ THE landmine — the activity coding key
+
+        ProtectedSeas codes every fishing/marine-activity column as
+        0=Allowed, 1=PROHIBITED, 2=Restricted, 3=N/A-or-Unknown,
+        null=Not-Yet-Coded. `1` means PROHIBITED. A truthy test such as
+        `if (props.anchoring)` inverts the safety meaning of the entire
+        plugin. Every coded column MUST go through `levelOf()` in
+        `src/schema.ts`. There is a golden test asserting
+        `levelOf(1) === 'prohibited'` — if a change makes it fail, the
+        change is wrong, not the test. Flag ANY new code that reads a
+        coded column without `levelOf()`.
+
+        ## Cross-repo parity contract
+
+        The decode logic has four corners that must stay in lockstep:
+        `src/schema.ts` (here), and in `dirkwa/restricted-areas-data`:
+        `bin/lib/decode.mjs`, `mapping.json`, and `bin/lib/api-map.mjs`.
+        Flag any change to `levelOf`, the coarse-activity coalescing,
+        or the special-field rules (tribal boolean, wdpa_id string,
+        iucn_cat, lfp) that does not mention updating the other repo.
+        Same for `FGB_JSON_FIELDS` in `src/spatial-index.ts` — it
+        mirrors the pipeline's flattening list.
+
+        The release `manifest.json` shape (assets nested under
+        `regions[].assets`) is pinned by a verbatim published manifest
+        in `test/fixtures/`. Flag manifest-shape changes that don't
+        update the producer (`make-manifest.mjs` in the data repo).
+
+        ## Architecture rules
+
+        - **Read-only resource provider.** `setResource`/`deleteResource`
+          throw. Never write to user resource stores.
+        - **Offline-first.** Network is used only to fetch/update the
+          dataset; `start()` must never block server startup on network
+          or index work. The fetched manifest is persisted beside the
+          FGBs so the dataset date survives offline restarts — users
+          must always be able to see the Navigator extract date.
+        - **Per-component spatial index, never per-feature.** A Navigator
+          MultiPolygon can straddle ±180°; a per-feature bbox would match
+          almost every query point. Do not suggest "simplifying"
+          `src/spatial-index.ts` to per-feature bboxes.
+        - **Deterministic notifications.** Geofence notifications use
+          stable per-zone paths
+          `notifications.navigation.restrictedArea.<uuidv5(siteId)>` via
+          `app.handleMessage` — never `app.notifications.raise` (not
+          idempotent across restarts). No `skVersion` on v1 paths.
+        - **Attribution everywhere.** `src/attribution.ts` is the single
+          source for the CC BY 4.0 citations + disclaimer. Flag inlined
+          citation strings elsewhere.
+
+        ## TypeScript / lint conventions
+
+        - tsconfig strict; eslint strictTypeChecked. No `any`.
+        - eslint `argsIgnorePattern` is `'^$'` — an unused arg cannot be
+          silenced with a `_` prefix; write no-arg functions instead.
+        - `String(unknown)` trips `no-base-to-string`; coerce via the
+          `str`/`scalarToString` helpers in `src/schema.ts`.
+        - `rbush` and `flatgeobuf` are ESM-only under this CommonJS
+          build: they are loaded via dynamic `import()` and the
+          SpatialIndex factories are async ON PURPOSE. Do not suggest
+          converting them to static imports.
+        - No native dependencies — target is Raspberry Pi 4/5, Node 20+.
+
+        ## Tests
+
+        - vitest, pure unit tests with in-memory fixtures and mocked
+          `fetch`. All new code needs tests; test behavior at the
+          function boundary, not implementation.
+        - Mock manifests must use the REAL published shape
+          (`regions[].assets`) — inventing a different shape in mocks is
+          how the first live-release bug slipped through.
+
+        ## Echo comments
+
+        Flag any comment that merely restates what the code already
+        says. Replace with comments explaining why, not what — or
+        delete.
+
+        ## Documentation drift / history
+
+        Flag `.md` content describing development history or
+        implementation progress ("added in PR #N", "TODO: step 3") —
+        that belongs in git history. Docs describe current state and
+        design rationale. Flag stale references to symbols or files
+        that no longer exist on the branch.
+
+        ## Commit / PR conventions
+
+        - Branch names use hyphens, not slashes.
+        - Angular conventional commits: `<type>(<scope>): <subject>`,
+          subject ≤ 50 chars, imperative, no period.
+        - No `Co-Authored-By` lines, no tool attributions.
+        - **No version bumps in feature/fix PRs** — versions ride their
+          own `chore(release): X.Y.Z` PR (title-skipped above; flag a
+          `"version"` change sneaking into a feat/fix diff).
+        - No checklists with unchecked items in PR bodies or docs.
+
+        ## What NOT to flag
+
+        These are intentional:
+
+        - The async `SpatialIndex.from*` factories and dynamic
+          `import()` of rbush/flatgeobuf (ESM-only deps under
+          `module: node16` CommonJS).
+        - The per-component RBush entries back-referencing a parent
+          siteId (antimeridian safety, see above).
+        - `setResource`/`deleteResource` throwing — the provider is
+          read-only by design, the Resources API requires all four
+          methods to exist.
+        - The thin index adapters in `src/index.ts` (SpatialIndex →
+          resource-provider shape, SpatialIndex → geofence ZoneIndex):
+          the leaf modules keep independently testable interfaces; the
+          glue belongs in the entrypoint.
+        - Geometry served to clients is the simplified `.display.fgb`
+          variant while geofencing math also runs on it — the display
+          tolerance (~50 m) is inside the geofence approach radius and
+          hysteresis by design.
