@@ -25,15 +25,24 @@ export interface ManifestAsset {
   sha256: string
   bbox: [number, number, number, number]
   featureCount: number
-  region: string
 }
 
-/** The release manifest.json published alongside the FGB assets. */
+/** One region's entry in the manifest: its slug plus full+display assets. */
+export interface ManifestRegion {
+  region: string
+  assets: ManifestAsset[]
+}
+
+/**
+ * The release manifest.json published alongside the FGB assets. Assets are
+ * nested per region (`regions[].assets`), exactly as make-manifest.mjs emits —
+ * test fixtures must mirror this real shape, not a flattened invention.
+ */
 export interface Manifest {
   version: string
   datasetDate: string
   downloadDate: string
-  assets: ManifestAsset[]
+  regions: ManifestRegion[]
 }
 
 export interface DataManagerConfig {
@@ -113,9 +122,11 @@ function errorMessage(err: unknown): string {
  * and is within the geofence hysteresis, so the plugin serves it for both; the
  * full variant exists for offline analysis but would bloat the on-boat download.
  */
-function selectAssets(manifest: Manifest, regions: readonly string[]): ManifestAsset[] {
+export function selectAssets(manifest: Manifest, regions: readonly string[]): ManifestAsset[] {
   const wanted = new Set(regions)
-  return manifest.assets.filter((a) => wanted.has(a.region) && a.name.endsWith('.display.fgb'))
+  return manifest.regions
+    .filter((r) => wanted.has(r.region))
+    .flatMap((r) => r.assets.filter((a) => a.name.endsWith('.display.fgb')))
 }
 
 async function fetchManifest(
