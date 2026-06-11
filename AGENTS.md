@@ -14,8 +14,9 @@ the vessel approaches or enters a restricted zone.
 
 The dataset is produced by the companion pipeline repo
 [`restricted-areas-data`](https://github.com/dirkwa/restricted-areas-data) and published as
-regional FlatGeobuf extracts in GitHub Releases. This plugin downloads the region(s) the
-user configures, indexes them in memory, and serves them.
+regional FlatGeobuf extracts in GitHub Releases — kept current automatically by that repo's
+weekly Navigator-API sync. This plugin downloads the region(s) the user configures,
+sha256-verifies them, indexes them in memory, and serves them.
 
 ## ⚠️ THE landmine — the activity coding key
 
@@ -31,8 +32,11 @@ fires on the wrong zones. Every coded column MUST go through `levelOf()` in
 [src/schema.ts](src/schema.ts). There is a golden regression test asserting
 `levelOf(1) === 'prohibited'` ([test/schema.test.ts](test/schema.test.ts)) — if it ever
 flips, do not "fix" it to make other code pass; the decode is correct and something else is
-wrong. The same decode is mirrored in the pipeline repo's `bin/lib/decode.mjs`; the two MUST
-stay in sync.
+wrong. The decode contract has **four corners that must stay in lockstep**: `src/schema.ts`
+(here) and, in the pipeline repo, `bin/lib/decode.mjs`, `mapping.json`, and
+`bin/lib/api-map.mjs` (the Navigator API uses the same coding key but renames five fields
+and stringifies all numerics; api-map adapts API records into the schema everything else
+consumes). Change one, check all four.
 
 ## Architecture rules
 
@@ -41,7 +45,11 @@ stay in sync.
   user resource stores (`regions`, `notes`, …).
 - **Offline-first.** Network is used only to fetch/update the dataset. Every other function
   works without connectivity. `start()` must never block server startup on network or index
-  work — `startAsync` runs detached and routes failures to `app.setPluginError`.
+  work — `startAsync` runs detached and routes failures to `app.setPluginError`. The fetched
+  `manifest.json` is persisted beside the FGBs so the **Navigator extract date** survives
+  offline restarts — users must always be able to see the release date of the data they are
+  navigating with (a ProtectedSeas requirement). It shows in the status line and the config
+  schema description.
 - **Per-component spatial index, never per-feature.** A single Navigator MultiPolygon can
   straddle ±180°; its overall bbox can be ~358° wide and would match almost every query
   point. [src/spatial-index.ts](src/spatial-index.ts) EXPLODES every MultiPolygon into
@@ -78,7 +86,11 @@ stay in sync.
   `async` (see Gotchas).
 - [src/data-manager.ts](src/data-manager.ts) — `DataManager.ensureDataset()`: fetch the latest
   Release `manifest.json` from the data repo, download + sha256-verify the configured regions'
-  FGBs, atomic-swap into the data dir. Offline-tolerant; never throws out of `ensureDataset`.
+  display FGBs, atomic-swap into the data dir, persist the manifest locally. Offline-tolerant;
+  never throws out of `ensureDataset`. ⚠️ The manifest nests assets under `regions[].assets`
+  (NOT a flat `assets` array) — the shape is pinned by the verbatim published manifest in
+  [test/fixtures/](test/fixtures/); mock manifests in tests must use the real shape, because
+  an invented flat shape is exactly how the first live-release bug slipped past the suite.
 - [src/resource-provider.ts](src/resource-provider.ts) — `makeResourceProvider()`: the four
   `ResourceProviderMethods`, ResourceSet shaping (split by severity bucket with `styleRef`),
   `?bbox=` filtering, UUIDv5 ids. Freeboard style keys are `stroke`/`fill`/`width`(/`lineDash`).
@@ -103,7 +115,23 @@ npm run build:all  # lint + build + test
 npm test           # vitest
 ```
 
-`plugin/` is gitignored build output. `prepublishOnly` rebuilds before npm publish.
+`plugin/` is gitignored build output; `.scratch/` is gitignored local scratch (cr output,
+verification downloads) — never commit either. `prepublishOnly` rebuilds before npm publish.
+
+## CI and releases
+
+- [.github/workflows/signalk-ci.yml](.github/workflows/signalk-ci.yml) — every push/PR runs
+  the shared SignalK reusable plugin-ci workflow: Linux x64/arm64, macOS, Windows on
+  Node 20/22/24, `npm run lint` as the blocking format check, plus a Signal K server
+  integration test. [.gitattributes](.gitattributes) forces LF on checkout — without it the
+  Windows runners check out CRLF and prettier fails every line.
+- [.github/workflows/publish.yml](.github/workflows/publish.yml) — pushing a `vX.Y.Z` tag
+  creates the GitHub release and publishes to npm via **OIDC trusted publishing**
+  (`npm publish --provenance`, no token secret). `-beta.`/`-rc.` tags land on the `beta`
+  dist-tag. The job fails if the tag and `package.json` version disagree.
+- Version bumps ride their own `chore(release): X.Y.Z` PR — never inside a feature/fix PR.
+- Dependabot checks npm (minor+patch grouped) and actions weekly; CodeRabbit auto-review
+  skips `chore(release):`/`chore(deps):` PRs ([.coderabbit.yaml](.coderabbit.yaml)).
 
 ## Gotchas
 
@@ -118,8 +146,15 @@ npm test           # vitest
   `unknown`; coerce via the `scalarToString`/`str` helpers in schema.ts, not bare `String(v)`.
 - **No native dependencies.** Target is Raspberry Pi 4/5, Node 20+. Keep it that way.
 - **Decode parity.** If you change `levelOf`, the coarse-activity columns, or the special-field
-  rules in schema.ts, update the pipeline repo's `bin/lib/decode.mjs` and `mapping.json` to
-  match — a drift there means the on-boat decode disagrees with the published data.
+  rules in schema.ts, update the pipeline repo's `bin/lib/decode.mjs`, `mapping.json`, AND
+  `bin/lib/api-map.mjs` to match — a drift there means the on-boat decode disagrees with the
+  published data. Same for `FGB_JSON_FIELDS` in spatial-index.ts, which mirrors the pipeline's
+  JSON-flattening list (FlatGeobuf has no list/struct column type).
+- **Test fidelity beats convenience.** Two real bugs reached the live system through unit
+  suites that passed: an invented manifest shape in mocks, and code paths only exercised
+  end-to-end. When a contract has a real artifact (a published manifest, a captured API
+  response), pin the test to the verbatim artifact, and prefer one real end-to-end pass over
+  more mocks.
 
 ## Conventions
 
