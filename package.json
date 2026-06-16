@@ -7,7 +7,8 @@
   "files": [
     "plugin/",
     "app-icon.svg",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "signalk": {
     "displayName": "Restricted Areas",
@@ -32,6 +33,14 @@
   ],
   "author": "Dirk Wahrheit",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dirkwa/signalk-restricted-areas.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dirkwa/signalk-restricted-areas/issues"
+  },
+  "homepage": "https://github.com/dirkwa/signalk-restricted-areas#readme",
   "engines": {
     "node": ">=20.0.0",
     "signalk": ">=2.13.0"
