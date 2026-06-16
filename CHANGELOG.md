@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1]
+
+- Add `repository`, `bugs`, and `homepage` package metadata, and ship `CHANGELOG.md` in the
+  published tarball, so automated tooling can locate the source repository and release notes.
+
 ## [1.0.0]
 
 Initial release.
@@ -21,4 +26,5 @@ Initial release.
 - ProtectedSeas Navigator (CC BY 4.0) attribution and disclaimer surfaced on every
   ResourceSet, the plugin status line, and the README.
 
+[1.0.1]: https://github.com/dirkwa/signalk-restricted-areas/releases/tag/v1.0.1
 [1.0.0]: https://github.com/dirkwa/signalk-restricted-areas/releases/tag/v1.0.0
