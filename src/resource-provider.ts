@@ -296,6 +296,20 @@ export function makeResourceProvider(deps: ResourceProviderDeps): {
   // on every Freeboard poll. Bbox queries vary by viewport and are not cached.
   let fullListing: Record<string, ResourceSet> | undefined
 
+  // Resource ids are UUIDv5(siteId). Resolving a GET by scanning allZones()
+  // re-materializes every zone's Feature on each request; instead build a
+  // resourceId -> siteId map once (lazily) and fetch the single matching zone.
+  let idToSiteId: Map<string, string> | undefined
+  function resolveSiteId(id: string): string | undefined {
+    if (idToSiteId === undefined) {
+      idToSiteId = new Map()
+      for (const zone of deps.index.allZones()) {
+        idToSiteId.set(zoneId(zone.props.siteId), zone.props.siteId)
+      }
+    }
+    return idToSiteId.get(id)
+  }
+
   const methods: ResourceProviderMethods = {
     listResources(query: Record<string, unknown>): Promise<Record<string, unknown>> {
       const bbox = parseBbox(query.bbox)
@@ -305,7 +319,8 @@ export function makeResourceProvider(deps: ResourceProviderDeps): {
     },
 
     getResource(id: string, property?: string): Promise<object> {
-      const zone = findById(deps.index, id)
+      const siteId = resolveSiteId(id)
+      const zone = siteId !== undefined ? deps.index.getFeature(siteId) : undefined
       if (!zone) return Promise.reject(new Error(`restricted area not found: ${id}`))
       const feature = toFeature(zone, zoneSeverity(zone.props, deps.displayActivities))
       if (property === undefined) return Promise.resolve(feature)
@@ -326,16 +341,4 @@ export function makeResourceProvider(deps: ResourceProviderDeps): {
   }
 
   return { type: RESOURCE_TYPE, methods }
-}
-
-/**
- * Resource ids are UUIDv5(siteId), so resolve by scanning for the zone whose id
- * matches. The index is small enough (thousands) that a linear scan on the rare
- * single-resource GET is cheaper than maintaining a second id->siteId map.
- */
-function findById(index: RestrictedAreasIndex, id: string): IndexedZone | undefined {
-  for (const zone of index.allZones()) {
-    if (zoneId(zone.props.siteId) === id) return zone
-  }
-  return undefined
 }
