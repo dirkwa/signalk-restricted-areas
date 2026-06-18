@@ -290,10 +290,18 @@ export function makeResourceProvider(deps: ResourceProviderDeps): {
 } {
   const readOnly = (): Promise<never> => Promise.reject(new Error('restricted-areas is read-only'))
 
+  // The full (no-bbox) listing is invariant for the provider's lifetime: the
+  // index is immutable once loaded and a new dataset re-registers a fresh
+  // provider. Build it once and reuse it instead of rebuilding every ResourceSet
+  // on every Freeboard poll. Bbox queries vary by viewport and are not cached.
+  let fullListing: Record<string, ResourceSet> | undefined
+
   const methods: ResourceProviderMethods = {
     listResources(query: Record<string, unknown>): Promise<Record<string, unknown>> {
       const bbox = parseBbox(query.bbox)
-      return Promise.resolve(bbox ? bboxSet(deps, bbox) : bucketSets(deps))
+      if (bbox) return Promise.resolve(bboxSet(deps, bbox))
+      fullListing ??= bucketSets(deps)
+      return Promise.resolve(fullListing)
     },
 
     getResource(id: string, property?: string): Promise<object> {

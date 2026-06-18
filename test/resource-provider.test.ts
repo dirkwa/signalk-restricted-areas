@@ -160,6 +160,57 @@ describe('listResources — per-activity layers', () => {
   })
 })
 
+describe('listResources — full-listing cache', () => {
+  function countingIndex(zones: readonly IndexedZone[]): {
+    index: RestrictedAreasIndex
+    allZonesCalls: () => number
+  } {
+    const base = fakeIndex(zones)
+    let calls = 0
+    return {
+      index: {
+        ...base,
+        allZones: () => {
+          calls++
+          return base.allZones()
+        }
+      },
+      allZonesCalls: () => calls
+    }
+  }
+
+  it('computes the full listing once and reuses it across calls', async () => {
+    const { index, allZonesCalls } = countingIndex(ALL)
+    const p = makeResourceProvider({
+      index,
+      displayActivities: DISPLAY_ACTIVITIES,
+      attribution: ATTRIBUTION
+    })
+    const first = await p.methods.listResources({})
+    const second = await p.methods.listResources({})
+    expect(allZonesCalls()).toBe(1)
+    expect(second).toEqual(first)
+  })
+
+  it('does not let a bbox query populate or serve the full-listing cache', async () => {
+    const { index, allZonesCalls } = countingIndex(ALL)
+    const p = makeResourceProvider({
+      index,
+      displayActivities: DISPLAY_ACTIVITIES,
+      attribution: ATTRIBUTION
+    })
+    await p.methods.listResources({ bbox: '-1,-1,2,2' })
+    const full = (await p.methods.listResources({})) as Record<
+      string,
+      { values: FeatureCollection }
+    >
+    // The bbox query must not have been cached as the full listing.
+    expect(allZonesCalls()).toBe(1)
+    const anchoring = full['restricted-areas-anchoring']
+    expect(anchoring.values.features.map((f) => f.id)).toEqual([zoneId('PROH1')])
+  })
+})
+
 describe('listResources — bbox query', () => {
   it('returns per-activity sets filtered to the bbox', async () => {
     // bbox around the prohibited (anchoring) zone only (origin square).
