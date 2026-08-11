@@ -237,6 +237,31 @@ describe('listResources — bbox query', () => {
   })
 })
 
+describe('getResource — id resolution cost', () => {
+  it('resolves repeated GETs without rescanning every zone each call', async () => {
+    const base = fakeIndex(ALL)
+    let allZonesCalls = 0
+    const counting: RestrictedAreasIndex = {
+      ...base,
+      allZones: () => {
+        allZonesCalls++
+        return base.allZones()
+      }
+    }
+    const p = makeResourceProvider({
+      index: counting,
+      displayActivities: DISPLAY_ACTIVITIES,
+      attribution: ATTRIBUTION
+    })
+    const a = (await p.methods.getResource(zoneId('REST1'))) as Feature
+    const b = (await p.methods.getResource(zoneId('PROH1'))) as Feature
+    // The full set of zones is enumerated at most once, not once per GET.
+    expect(allZonesCalls).toBeLessThanOrEqual(1)
+    expect(a.id).toBe(zoneId('REST1'))
+    expect(b.id).toBe(zoneId('PROH1'))
+  })
+})
+
 describe('getResource', () => {
   it('returns a single zone as a GeoJSON Feature', async () => {
     const feature = (await provider(ALL).methods.getResource(zoneId('REST1'))) as Feature
