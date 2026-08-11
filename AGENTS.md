@@ -173,7 +173,8 @@ verification downloads) — never commit either. `prepublishOnly` rebuilds befor
 - Comments explain WHY, not WHAT — no echo comments restating the code.
 - Commits use Angular conventional format (`feat:`, `fix:`, `chore:`, `refactor:`, `test:`,
   `docs:`, `perf:`, `build:`, `ci:`) — a lowercase imperative subject, no trailing period,
-  with the body explaining WHY rather than restating the diff.
+  with the body explaining WHY rather than restating the diff. The one exception is the
+  release PR, whose subject is the bare version (`chore(release): 1.0.2`).
 - **PR titles use the same Angular format.** The title is not cosmetic: it is what the
   generated release notes list under each category, and what a squash-merge records on
   master. `chore(deps):`/`chore(release):` titles additionally opt a PR out of CodeRabbit
