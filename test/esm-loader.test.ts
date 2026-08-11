@@ -16,7 +16,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, rmSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import * as path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { describe, it, expect, beforeAll } from 'vitest'
 
 import type { Plugin } from '@signalk/server-api'
@@ -34,7 +34,10 @@ async function importOrRequire(moduleDir: string): Promise<PluginFactory> {
     const resolved = (mod as { default?: unknown }).default ?? mod
     return resolved as PluginFactory
   } catch {
-    const imported: unknown = await import(path.join(moduleDir, 'plugin', 'index.js'))
+    // import() needs a file:// URL here — on Windows a bare `D:\…` path is
+    // rejected with ERR_UNSUPPORTED_ESM_URL_SCHEME.
+    const entry = pathToFileURL(path.join(moduleDir, 'plugin', 'index.js')).href
+    const imported: unknown = await import(entry)
     return (imported as { default: PluginFactory }).default
   }
 }
@@ -58,7 +61,15 @@ describe('ESM packaging', () => {
     // tsc does not prune its outDir, so a stale plugin/*.js from a since-renamed
     // source file would still be loadable. Assert against a fresh emit only.
     rmSync(path.join(packageDir, 'plugin'), { recursive: true, force: true })
-    execFileSync('npx', ['tsc'], { cwd: packageDir, stdio: 'pipe' })
+
+    // Run the compiler through this same Node binary rather than `npx`: on
+    // Windows the launcher is `npx.cmd`, and execFileSync does no PATHEXT
+    // resolution, so spawning bare `npx` fails with ENOENT.
+    const require = createRequire(import.meta.url)
+    execFileSync(process.execPath, [require.resolve('typescript/bin/tsc')], {
+      cwd: packageDir,
+      stdio: 'pipe'
+    })
   })
 
   it('emits the built entrypoint declared as package main', () => {
