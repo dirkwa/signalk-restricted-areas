@@ -164,12 +164,21 @@ describe('listResources — per-activity layers', () => {
     }
   })
 
-  it('freezes the shared style map so one response cannot mutate later ones', async () => {
-    const sets = await provider(ALL).methods.listResources({})
-    const styles = (sets['restricted-areas-anchoring'] as { styles: Record<string, unknown> })
-      .styles
-    expect(Object.isFrozen(styles)).toBe(true)
-    expect(Object.values(styles).every(Object.isFrozen)).toBe(true)
+  it('a mutation through one response cannot reach a later one', async () => {
+    const stylesOf = async (): Promise<Record<string, { stroke: string }>> =>
+      (
+        (await provider(ALL).methods.listResources({}))['restricted-areas-anchoring'] as {
+          styles: Record<string, { stroke: string }>
+        }
+      ).styles
+
+    const styles = await stylesOf()
+    const stroke = styles.prohibited.stroke
+    Reflect.set(styles.prohibited, 'stroke', '#000000')
+    Reflect.set(styles, 'prohibited', styles.info)
+
+    const later = await stylesOf()
+    expect(later.prohibited.stroke).toBe(stroke)
   })
 
   it('carries the zone display props onto each Feature', async () => {
