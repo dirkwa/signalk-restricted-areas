@@ -81,9 +81,9 @@ consumes). Change one, check all four.
   'Unassigned'→null, `lfp` 0..5), and `zoneSeverity()`.
 - [src/spatial-index.ts](src/spatial-index.ts) — `SpatialIndex`: `fromFeatureCollection`
   (in-memory, for tests), `fromFlatGeobufFile`/`fromFlatGeobufFiles` (production), `queryPoint`,
-  `queryBbox`, `allZones`, `getFeature`, `size`. rbush + flatgeobuf are ESM-only, so under
-  `module:node16`/CommonJS they are pulled in via dynamic `import()` and the build functions are
-  `async` (see Gotchas).
+  `queryBbox`, `allZones`, `getFeature`, `size`. rbush + flatgeobuf are ESM-only and this package
+  is ESM, so they are plain static imports. The `from*` builders keep their `Promise` return type
+  even though only the FlatGeobuf ones actually await I/O.
 - [src/data-manager.ts](src/data-manager.ts) — `DataManager.ensureDataset()`: fetch the latest
   Release `manifest.json` from the data repo, download + sha256-verify the configured regions'
   display FGBs, atomic-swap into the data dir, persist the manifest locally. Offline-tolerant;
@@ -135,10 +135,14 @@ verification downloads) — never commit either. `prepublishOnly` rebuilds befor
 
 ## Gotchas
 
-- **ESM-only deps under node16/CommonJS.** `rbush` and `flatgeobuf` ship ESM only. A static
-  `import` of them errors at build with TS1479. They are loaded via dynamic `import()`; this is
-  why `SpatialIndex.from*` are async. `@turf/*` and `uuid` have `require` conditions and use
-  normal static imports.
+- **This package is pure ESM** (`"type": "module"`, `module`/`moduleResolution: nodenext`). The
+  entrypoint is `export default (app) => …`, NOT `module.exports =`. There is no `require`,
+  `__dirname`, or `__filename` — use `import.meta.url` if you ever need a module path. Relative
+  imports must carry the `.js` extension (they already do). ESM-only deps (`rbush`, `flatgeobuf`)
+  are now plain static imports; the old dynamic-`import()` workaround is gone.
+- **Node floor is 20.19.0.** The Signal K server loads plugins via `importOrRequire()`, which
+  tries `require()` first — that only works on an ESM plugin from Node 20.19+/22+. Do not lower
+  `engines.node` back to `>=20.0.0`.
 - **eslint `argsIgnorePattern` is `'^$'`.** You cannot silence an unused arg by prefixing it
   with `_`. Write no-arg functions or actually use the arg. (Same convention as the other
   dirkwa SignalK repos.)

@@ -3,7 +3,7 @@
   "version": "1.0.1",
   "description": "Serve marine restricted-area data (ProtectedSeas Navigator) to Freeboard-SK via the Resources API and emit server-side geofence notifications.",
   "main": "plugin/index.js",
-  "type": "commonjs",
+  "type": "module",
   "files": [
     "plugin/",
     "app-icon.svg",
@@ -42,7 +42,7 @@
   },
   "homepage": "https://github.com/dirkwa/signalk-restricted-areas#readme",
   "engines": {
-    "node": ">=20.0.0",
+    "node": ">=20.19.0",
     "signalk": ">=2.13.0"
   },
   "dependencies": {

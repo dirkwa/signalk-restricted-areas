@@ -7,14 +7,14 @@
  * every query. We therefore EXPLODE every MultiPolygon into its component
  * Polygons and index ONE RBush entry per component (back-referenced to the
  * parent siteId), so each box is tight and no ring is assumed to cross ±180.
- *
- * rbush and flatgeobuf are ESM-only; this file compiles to CommonJS, so they
- * are pulled in via dynamic import() and the build functions are async.
  */
+
+import { readFile } from 'node:fs/promises'
 
 import bbox from '@turf/bbox'
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon'
-import type RBush from 'rbush' with { 'resolution-mode': 'import' }
+import { deserialize } from 'flatgeobuf/lib/mjs/geojson.js'
+import RBush from 'rbush'
 import type { Feature, FeatureCollection, Geometry, Polygon, Position } from 'geojson'
 
 import { normalizeProps, type Activity, type Level, type RestrictedZoneProps } from './schema.js'
@@ -116,12 +116,11 @@ export class SpatialIndex {
   }
 
   /** Shared builder: `toProps` maps a feature's raw properties to RestrictedZoneProps. */
-  private static async build(
+  private static build(
     features: FeatureCollection['features'],
     toProps: (props: Record<string, unknown>) => RestrictedZoneProps
-  ): Promise<SpatialIndex> {
-    const { default: RBushCtor } = await import('rbush')
-    const tree = new RBushCtor<ComponentEntry>()
+  ): SpatialIndex {
+    const tree = new RBush<ComponentEntry>()
     const zones = new Map<string, ZoneEntry>()
     const entries: ComponentEntry[] = []
 
@@ -153,12 +152,14 @@ export class SpatialIndex {
    * Build an index from an in-memory GeoJSON FeatureCollection of RAW Navigator
    * features (properties run through `normalizeProps`). Used for dev fixtures and
    * tests. Features without Polygon/MultiPolygon geometry or a siteId are skipped.
+   *
+   * Building is synchronous now that rbush is a static import, but the Promise
+   * return type is kept so the three `from*` builders stay interchangeable.
    */
-  static async fromFeatureCollection(
-    fc: FeatureCollection,
-    attribution: string
-  ): Promise<SpatialIndex> {
-    return SpatialIndex.build(fc.features, (props) => normalizeProps(props, attribution))
+  static fromFeatureCollection(fc: FeatureCollection, attribution: string): Promise<SpatialIndex> {
+    return Promise.resolve().then(() =>
+      SpatialIndex.build(fc.features, (props) => normalizeProps(props, attribution))
+    )
   }
 
   /**
@@ -167,8 +168,6 @@ export class SpatialIndex {
    * uses the restore path, NOT normalizeProps.
    */
   static async fromFlatGeobufFile(filePath: string, attribution: string): Promise<SpatialIndex> {
-    const { readFile } = await import('node:fs/promises')
-    const { deserialize } = await import('flatgeobuf/lib/mjs/geojson.js')
     const buffer = await readFile(filePath)
     const fc = deserialize(new Uint8Array(buffer))
     return SpatialIndex.build(fc.features, (props) => restoreFromFgb(props, attribution))
@@ -183,8 +182,6 @@ export class SpatialIndex {
     filePaths: string[],
     attribution: string
   ): Promise<SpatialIndex> {
-    const { readFile } = await import('node:fs/promises')
-    const { deserialize } = await import('flatgeobuf/lib/mjs/geojson.js')
     const features: FeatureCollection['features'] = []
     for (const filePath of filePaths) {
       const buffer = await readFile(filePath)
