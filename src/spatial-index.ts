@@ -157,7 +157,7 @@ export class SpatialIndex {
    * return type is kept so the three `from*` builders stay interchangeable.
    */
   static fromFeatureCollection(fc: FeatureCollection, attribution: string): Promise<SpatialIndex> {
-    return Promise.resolve(
+    return Promise.resolve().then(() =>
       SpatialIndex.build(fc.features, (props) => normalizeProps(props, attribution))
     )
   }
