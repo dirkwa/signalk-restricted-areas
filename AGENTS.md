@@ -121,7 +121,9 @@ npm run build:all  # lint + build + test
 npm test           # vitest (unit only — no server, no network)
 
 # End-to-end, against a Signal K server you are already running:
-SIGNALK_URL=http://localhost:3999 npm run test:e2e
+# SIGNALK_NODE_CONFIG_DIR must match the server's — it is how the wrapper finds
+# the plugin data dir to stage the fixture into, and the run aborts without it.
+SIGNALK_URL=http://localhost:3999 SIGNALK_NODE_CONFIG_DIR=/path/to/server npm run test:e2e
 ```
 
 `test:integration` is the same run wrapped for CI — the shared plugin-ci workflow calls it

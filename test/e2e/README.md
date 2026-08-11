@@ -49,6 +49,9 @@ Locally, against a server you already have running:
 ```bash
 # one-time: install the server somewhere scratch and install the plugin into it
 export E2E_DIR="${TMPDIR:-/tmp}/ra-e2e"
+# build first: plugin/ does not exist on a clean checkout, and --ignore-scripts
+# skips prepublishOnly, so packing without it ships an empty plugin dir
+npm run build
 npm pack --ignore-scripts --pack-destination /tmp
 mkdir -p "$E2E_DIR" && cd "$E2E_DIR"
 npm init -y && npm install signalk-server /tmp/signalk-restricted-areas-*.tgz
