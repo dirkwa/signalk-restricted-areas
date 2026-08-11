@@ -129,6 +129,12 @@ verification downloads) — never commit either. `prepublishOnly` rebuilds befor
   creates the GitHub release and publishes to npm via **OIDC trusted publishing**
   (`npm publish --provenance`, no token secret). `-beta.`/`-rc.` tags land on the `beta`
   dist-tag. The job fails if the tag and `package.json` version disagree.
+- **Release notes are generated, not hand-written.** There is no `CHANGELOG.md`. The publish
+  job sets `generate_release_notes: true`, and [.github/release.yml](.github/release.yml)
+  groups the notes into 🚀 Features / 🐛 Fixes / 📦 Dependencies / Other by PR **label**.
+  So: label every PR (`enhancement`/`feature`, `bug`/`fix`, `dependencies`), and give it an
+  Angular-style title — the title is what appears in the notes. `skip-changelog` omits a PR
+  entirely.
 - Version bumps ride their own `chore(release): X.Y.Z` PR — never inside a feature/fix PR.
 - Dependabot checks npm (minor+patch grouped) and actions weekly; CodeRabbit auto-review
   skips `chore(release):`/`chore(deps):` PRs ([.coderabbit.yaml](.coderabbit.yaml)).
@@ -165,5 +171,11 @@ verification downloads) — never commit either. `prepublishOnly` rebuilds befor
 - Prettier: no semicolons, single quotes, `trailingComma: none`, `printWidth: 100`,
   `arrowParens: always`.
 - Comments explain WHY, not WHAT — no echo comments restating the code.
-- Commits use Angular conventional format (`feat:`, `fix:`, `chore:`, …).
+- Commits use Angular conventional format (`feat:`, `fix:`, `chore:`, `refactor:`, `test:`,
+  `docs:`, `perf:`, `build:`, `ci:`) — a lowercase imperative subject, no trailing period,
+  with the body explaining WHY rather than restating the diff.
+- **PR titles use the same Angular format.** The title is not cosmetic: it is what the
+  generated release notes list under each category, and what a squash-merge records on
+  master. `chore(deps):`/`chore(release):` titles additionally opt a PR out of CodeRabbit
+  auto-review.
 - All new code needs tests; test behaviour, not implementation.

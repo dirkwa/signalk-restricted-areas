@@ -7,8 +7,7 @@
   "files": [
     "plugin/",
     "app-icon.svg",
-    "README.md",
-    "CHANGELOG.md"
+    "README.md"
   ],
   "signalk": {
     "displayName": "Restricted Areas",
