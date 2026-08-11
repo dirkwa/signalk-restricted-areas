@@ -164,6 +164,14 @@ describe('listResources — per-activity layers', () => {
     }
   })
 
+  it('freezes the shared style map so one response cannot mutate later ones', async () => {
+    const sets = await provider(ALL).methods.listResources({})
+    const styles = (sets['restricted-areas-anchoring'] as { styles: Record<string, unknown> })
+      .styles
+    expect(Object.isFrozen(styles)).toBe(true)
+    expect(Object.values(styles).every(Object.isFrozen)).toBe(true)
+  })
+
   it('carries the zone display props onto each Feature', async () => {
     const sets = await provider(ALL).methods.listResources({})
     const anchoring = sets['restricted-areas-anchoring'] as { values: FeatureCollection }

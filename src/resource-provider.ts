@@ -86,10 +86,12 @@ interface FreeboardStyle {
   lineDash?: number[]
 }
 
-const STYLES: Record<Severity, FreeboardStyle> = {
-  prohibited: { stroke: '#E03030', fill: 'rgba(224,48,48,0.25)', width: 2 },
-  restricted: { stroke: '#FFA500', fill: 'rgba(255,165,0,0.20)', width: 2 },
-  info: { stroke: '#C8B400', fill: 'rgba(200,180,0,0.12)', width: 1 }
+type FreeboardStyleMap = Readonly<Record<string, Readonly<FreeboardStyle>>>
+
+const STYLES: Record<Severity, Readonly<FreeboardStyle>> = {
+  prohibited: Object.freeze({ stroke: '#E03030', fill: 'rgba(224,48,48,0.25)', width: 2 }),
+  restricted: Object.freeze({ stroke: '#FFA500', fill: 'rgba(255,165,0,0.20)', width: 2 }),
+  info: Object.freeze({ stroke: '#C8B400', fill: 'rgba(200,180,0,0.12)', width: 1 })
 }
 
 /** Title-case label for an activity's ResourceSet name. */
@@ -188,19 +190,22 @@ function toFeature(zone: IndexedZone, styleRef: Severity, description: string): 
   }
 }
 
-/** Shared, immutable across every ResourceSet — the style map never varies. */
-const STYLE_MAP: Record<string, FreeboardStyle> = {
+/**
+ * Shared across every ResourceSet — the style map never varies. Frozen (and its
+ * styles with it) so one response cannot mutate the map every later response holds.
+ */
+const STYLE_MAP: FreeboardStyleMap = Object.freeze({
   default: STYLES.info,
   prohibited: STYLES.prohibited,
   restricted: STYLES.restricted,
   info: STYLES.info
-}
+})
 
 interface ResourceSet {
   type: 'ResourceSet'
   name: string
   description: string
-  styles: Record<string, FreeboardStyle>
+  styles: FreeboardStyleMap
   values: FeatureCollection
 }
 
