@@ -15,7 +15,7 @@
 
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
-import { mkdir, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 /** A single FGB asset described by the data-pipeline release manifest. */
@@ -270,7 +270,6 @@ export class DataManager {
   /** Read a previously-downloaded/staged manifest.json from the dataset dir, if any. */
   private async readLocalManifest(): Promise<Manifest | undefined> {
     try {
-      const { readFile } = await import('node:fs/promises')
       const raw = await readFile(join(this.datasetDir, 'manifest.json'), 'utf8')
       return JSON.parse(raw) as Manifest
     } catch {
@@ -294,7 +293,6 @@ async function pathExists(path: string): Promise<boolean> {
  * `<region>.fgb`. Never return both — the index would load each zone twice.
  */
 async function regionFiles(dir: string, region: string): Promise<string[]> {
-  const { readdir } = await import('node:fs/promises')
   let names: string[]
   try {
     names = await readdir(dir)

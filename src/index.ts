@@ -243,7 +243,7 @@ function withDefaults(raw: object): Config {
   }
 }
 
-module.exports = (app: ServerAPI): Plugin => {
+export default (app: ServerAPI): Plugin => {
   let geofence: GeofenceEngine | undefined
   let status = `No dataset — configure regions to fetch from ${DEFAULTS.dataRepo}`
   // The Navigator extract date of the installed dataset, surfaced in the
