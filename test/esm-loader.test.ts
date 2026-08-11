@@ -13,7 +13,7 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, rmSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -55,7 +55,9 @@ function stubApp(): unknown {
 
 describe('ESM packaging', () => {
   beforeAll(() => {
-    // The suite must assert against fresh output, not a stale plugin/ dir.
+    // tsc does not prune its outDir, so a stale plugin/*.js from a since-renamed
+    // source file would still be loadable. Assert against a fresh emit only.
+    rmSync(path.join(packageDir, 'plugin'), { recursive: true, force: true })
     execFileSync('npx', ['tsc'], { cwd: packageDir, stdio: 'pipe' })
   })
 
