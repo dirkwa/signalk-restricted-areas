@@ -44,39 +44,66 @@ const configuration = {
   geofence: { enabled: true }
 }
 
+/** POST the config, which makes the server stop the plugin and start it again. */
+async function reconfigure() {
+  const res = await fetch(`${BASE}/plugins/${PLUGIN_ID}/config`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled: true, configuration })
+  })
+  if (!res.ok) {
+    console.error(`::error::failed to configure the plugin → HTTP ${res.status}`)
+    process.exit(1)
+  }
+}
+
+// ORDER MATTERS. `autoUpdate` defaults to TRUE, and plugin-ci starts the server
+// with an empty configuration — so the plugin's first start downloads the real
+// multi-megabyte dataset from GitHub Releases and overwrites whatever we staged.
+// Pin autoUpdate:false FIRST, let that restart settle, and only then write the
+// fixture, so nothing can race in behind us and replace it.
+await reconfigure()
+await new Promise((resolve) => setTimeout(resolve, 1000))
+
 const staged = await stageDataset(dataDir())
 console.log(`staged offline dataset at ${staged}`)
 
-// Restart the plugin so it re-reads the dataset dir we just populated.
-const res = await fetch(`${BASE}/plugins/${PLUGIN_ID}/config`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ enabled: true, configuration })
-})
-
-if (!res.ok) {
-  console.error(`::error::failed to configure the plugin → HTTP ${res.status}`)
-  process.exit(1)
-}
+// Restart again, now that the dataset dir holds the fixture.
+await reconfigure()
 console.log('plugin reconfigured; waiting for it to come back up')
 
 // startAsync is detached, so the resource provider registers a moment after the
 // POST returns. Poll for the listing rather than guessing a sleep duration.
 const listingUrl = `${BASE}/signalk/v2/api/resources/restricted-areas`
 let ready = false
+let lastProblem = 'no request completed'
 for (let i = 0; i < 30 && !ready; i += 1) {
   await new Promise((resolve) => setTimeout(resolve, 500))
   const listing = await fetch(listingUrl)
-    .then((r) => (r.ok ? r.json() : null))
-    .catch(() => null)
+    .then((r) => {
+      if (!r.ok) {
+        lastProblem = `HTTP ${r.status}`
+        return null
+      }
+      return r.json()
+    })
+    .catch((err) => {
+      lastProblem = err instanceof Error ? err.message : 'unknown fetch error'
+      return null
+    })
   if (listing === null) continue
+  lastProblem = 'listing served, but no ResourceSet carried features'
   ready = Object.values(listing).some(
     (v) => v !== null && typeof v === 'object' && (v.values?.features?.length ?? 0) > 0
   )
 }
 
 if (!ready) {
-  console.error('::error::plugin did not serve any zones after staging the offline dataset')
+  // Without the last failure the CI log just says "no zones" — which looks
+  // identical whether the server was down, 404'd, or served an empty index.
+  console.error(
+    `::error::plugin did not serve any zones after staging the offline dataset (${lastProblem})`
+  )
   process.exit(1)
 }
 

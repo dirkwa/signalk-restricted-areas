@@ -19,8 +19,8 @@
     "build": "tsc",
     "build:all": "npm run lint && npm run build && npm run test",
     "test": "vitest run",
-    "test:e2e": "node test/e2e/run.mjs",
-    "test:integration": "node test/e2e/ci-integration.mjs",
+    "test:e2e": "npm run build && node test/e2e/run.mjs",
+    "test:integration": "npm run build && node test/e2e/ci-integration.mjs",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -64,6 +64,7 @@
     "prettier": "^3.4.2",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.18.0",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.8",
+    "ws": "^8.21.3"
   }
 }

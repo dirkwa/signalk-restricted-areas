@@ -37,12 +37,21 @@ In CI the shared plugin-ci workflow starts a server, installs the plugin, and ru
 `ci-integration.mjs` stages the fixture, POSTs the plugin config to force a restart, waits for
 zones to appear, then hands off to `run.mjs`.
 
+⚠️ **Order matters, and it is not cosmetic.** `autoUpdate` defaults to **true** and plugin-ci
+starts the server with an empty configuration, so the plugin's first start begins downloading
+the real multi-megabyte dataset — which lands on top of whatever you staged. The wrapper
+therefore pins `autoUpdate: false` and restarts *before* writing the fixture. Staging first
+and configuring afterwards looks equivalent and is not: the run then asserts against the live
+Navigator data, and the "offline" guarantee is silently gone.
+
 Locally, against a server you already have running:
 
 ```bash
 # one-time: install the server somewhere scratch and install the plugin into it
+export E2E_DIR="${TMPDIR:-/tmp}/ra-e2e"
 npm pack --ignore-scripts --pack-destination /tmp
-cd ~/dev/tmp/ra-e2e-run && npm install /tmp/signalk-restricted-areas-*.tgz
+mkdir -p "$E2E_DIR" && cd "$E2E_DIR"
+npm init -y && npm install signalk-server /tmp/signalk-restricted-areas-*.tgz
 
 # stage the fixture + start the server (PORT, not -p — the flag is ignored without a
 # settings file, and the server will otherwise take 3000)
@@ -56,13 +65,23 @@ SIGNALK_URL=http://localhost:3999 npm run test:e2e
 Pick a free `NMEA0183PORT`: the default 10110 is usually already taken by a real server on
 this machine, and the collision only shows up as a line in the log.
 
+The geofence check is slower than the rest, deliberately. The engine only re-evaluates once
+the vessel has moved far enough **and** `evalIntervalSeconds` (default 10) has elapsed, so a
+single position delta is often ignored outright. Both the clear and the enter phases re-send
+the fix on a loop until the gate opens — a one-shot delta plus a short sleep passes only by
+luck.
+
 ## Checking that it can still fail
 
-A green e2e that cannot detect breakage is worthless. Flip the fixture's decoded level and the
-bucket assertion must fail:
+A green e2e that cannot detect breakage is worthless. Flip the fixture's decoded levels and the
+bucket assertion must fail.
+
+Flip **both** displayed activities — the zone is prohibited for `anchoring` *and* `fishing`, so
+clearing only one leaves it in the other's prohibited layer and the check still passes:
 
 ```bash
-sed -i "s/anchoring: 'prohibited'/anchoring: 'allowed'/" test/e2e/setup-fixture.mjs
+sed -i "s/anchoring: 'prohibited', fishing: 'prohibited'/anchoring: 'allowed', fishing: 'allowed'/" \
+  test/e2e/setup-fixture.mjs
 # → FAIL  decodes the prohibited zone into the prohibited bucket
 #         expected styleRef "prohibited", got "info"
 git checkout test/e2e/setup-fixture.mjs

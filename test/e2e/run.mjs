@@ -17,8 +17,15 @@
 
 import { strict as assert } from 'node:assert'
 
+import WebSocket from 'ws'
+
 import { RESOURCE_TYPE } from '../../plugin/resource-provider.js'
-import { DISTANT_NAME, INSIDE_POSITION, PROHIBITED_NAME } from './setup-fixture.mjs'
+import {
+  DISTANT_NAME,
+  INSIDE_POSITION,
+  OUTSIDE_POSITION,
+  PROHIBITED_NAME
+} from './setup-fixture.mjs'
 
 const BASE = process.env.SIGNALK_URL ?? 'http://localhost:3000'
 const RESOURCES = `${BASE}/signalk/v2/api/resources/${RESOURCE_TYPE}`
@@ -51,28 +58,38 @@ function sendDelta(delta) {
   return new Promise((resolve, reject) => {
     const url = `${BASE.replace(/^http/, 'ws')}/signalk/v1/stream?subscribe=none`
     const socket = new WebSocket(url)
-    const fail = (err) => {
+
+    // Declared before `fail` so both settle paths can clear it.
+    let guard
+    const settle = (fn) => {
+      clearTimeout(guard)
       try {
         socket.close()
       } catch {
         /* already closing */
       }
-      reject(err instanceof Error ? err : new Error(String(err)))
+      fn()
     }
-    socket.addEventListener('open', () => {
+    const fail = (err) => {
+      settle(() => {
+        reject(err instanceof Error ? err : new Error(String(err)))
+      })
+    }
+
+    guard = setTimeout(() => {
+      fail(new Error(`websocket to ${url} did not open within 10s`))
+    }, 10_000)
+
+    socket.on('open', () => {
       socket.send(JSON.stringify(delta))
       // Give the server a tick to process before the socket goes away.
       setTimeout(() => {
-        socket.close()
-        resolve()
+        settle(resolve)
       }, 250)
     })
-    socket.addEventListener('error', () => {
-      fail(new Error(`websocket to ${url} failed`))
+    socket.on('error', (err) => {
+      fail(new Error(`websocket to ${url} failed: ${err.message}`))
     })
-    setTimeout(() => {
-      fail(new Error(`websocket to ${url} did not open within 10s`))
-    }, 10_000)
   })
 }
 
@@ -169,32 +186,43 @@ await check('raises a geofence notification when the vessel enters a zone', asyn
   // private, so assert on the SUBTREE rather than recomputing that id here —
   // duplicating the namespace would rot the moment it changed.
   const subtree = 'notifications/navigation/restrictedArea'
-
-  // A delta sent over /signalk/v1/stream is fed straight to app.handleMessage
-  // (server src/interfaces/ws.ts), which is the supported way to inject data.
-  await sendDelta({
+  const position = (value) => ({
     context: 'vessels.self',
-    updates: [
-      {
-        source: { label: 'e2e' },
-        values: [{ path: 'navigation.position', value: INSIDE_POSITION }]
-      }
-    ]
+    updates: [{ source: { label: 'e2e' }, values: [{ path: 'navigation.position', value }] }]
   })
-
-  // The engine reacts on the delta, but the tree updates asynchronously.
-  let notification = null
-  for (let i = 0; i < 25 && notification === null; i += 1) {
-    await new Promise((resolve) => setTimeout(resolve, 200))
+  const activeZones = async () => {
     const tree = await getJson(`${BASE}/signalk/v1/api/vessels/self/${subtree}`).catch(() => null)
-    if (tree === null) continue
-    // One child per zone, keyed by the uuidv5 of its siteId.
-    for (const zone of Object.values(tree)) {
-      if (zone?.value?.state && zone.value.state !== 'normal') {
-        notification = zone.value
-        break
-      }
-    }
+    if (tree === null) return []
+    return Object.values(tree).filter((z) => z?.value?.state && z.value.state !== 'normal')
+  }
+
+  // Park the vessel well clear first. Re-running against a server that already
+  // has an alarm raised would otherwise let this pass on the STALE notification
+  // without the engine ever reacting to the delta below.
+  //
+  // The engine throttles on `evalIntervalSeconds` (default 10) AND distance, so
+  // a clearing fix is not acted on until that interval has elapsed — the wait
+  // here must outlast it, and the position is re-sent so a fix is pending when
+  // the gate opens.
+  for (let i = 0; i < 45 && (await activeZones()).length > 0; i += 1) {
+    await sendDelta(position(OUTSIDE_POSITION))
+    await new Promise((resolve) => setTimeout(resolve, 500))
+  }
+  assert.equal(
+    (await activeZones()).length,
+    0,
+    'a zone was still active after moving clear — the engine never emitted "normal"'
+  )
+
+  // Deltas sent over /signalk/v1/stream are fed straight to app.handleMessage
+  // (server src/interfaces/ws.ts), which is the supported way to inject data.
+  // Same throttle applies on the way in, so keep the fix coming until the gate
+  // opens. One child per zone, keyed by the uuidv5 of its siteId.
+  let notification = null
+  for (let i = 0; i < 45 && notification === null; i += 1) {
+    await sendDelta(position(INSIDE_POSITION))
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    notification = (await activeZones())[0]?.value ?? null
   }
 
   assert.ok(notification, `no notification under ${subtree} after entering "${PROHIBITED_NAME}"`)
