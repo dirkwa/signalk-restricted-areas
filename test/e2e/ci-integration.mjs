@@ -1,19 +1,20 @@
 /**
- * CI entry point for the end-to-end run.
+ * Setup wrapper for the end-to-end run — the entry point for BOTH `test:e2e`
+ * and `test:integration`. (The two scripts are the same thing; plugin-ci
+ * discovers the run by the `test:integration` name, so that one has to keep it.)
  *
  * The shared SignalK plugin-ci workflow starts a server, installs this plugin,
- * and then runs `npm run test:integration` with SIGNALK_URL pointing at it. That
- * server has no dataset: the plugin comes up with an empty index, so asserting
- * against it directly would prove nothing.
+ * and runs the script with SIGNALK_URL pointing at it. That server has no
+ * dataset, so before handing off to run.mjs we
+ *   1. POST the plugin config with `autoUpdate: false` and let it restart,
+ *   2. stage the offline fixture into the plugin's data dir, and
+ *   3. restart once more so the plugin indexes it.
  *
- * So before handing off to run.mjs we
- *   1. stage the offline fixture into the plugin's data dir, and
- *   2. POST the plugin config, which makes the server stop and restart it —
- *      picking the staged dataset up on the way back with `autoUpdate: false`,
- *      so no download is ever attempted.
+ * Steps 1 and 2 are in that order on purpose — see the comment at the call site.
  *
- * Locally there is nothing to set up beyond an already-running server; see
- * test/e2e/README.md.
+ * Never call run.mjs directly: it asserts, it does not set anything up, so on a
+ * server with `autoUpdate` left at its default it would happily check the live
+ * Navigator download instead of the fixture. See test/e2e/README.md.
  */
 
 import { join } from 'node:path'
@@ -49,7 +50,8 @@ async function reconfigure() {
   const res = await fetch(`${BASE}/plugins/${PLUGIN_ID}/config`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ enabled: true, configuration })
+    body: JSON.stringify({ enabled: true, configuration }),
+    signal: AbortSignal.timeout(30_000)
   })
   if (!res.ok) {
     console.error(`::error::failed to configure the plugin → HTTP ${res.status}`)
@@ -79,7 +81,7 @@ let ready = false
 let lastProblem = 'no request completed'
 for (let i = 0; i < 30 && !ready; i += 1) {
   await new Promise((resolve) => setTimeout(resolve, 500))
-  const listing = await fetch(listingUrl)
+  const listing = await fetch(listingUrl, { signal: AbortSignal.timeout(10_000) })
     .then((r) => {
       if (!r.ok) {
         lastProblem = `HTTP ${r.status}`

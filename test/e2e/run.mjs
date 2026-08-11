@@ -44,7 +44,9 @@ async function check(label, fn) {
 }
 
 async function getJson(url) {
-  const res = await fetch(url)
+  // Bounded so a wedged server fails the check instead of hanging the run out
+  // to the CI job timeout.
+  const res = await fetch(url, { signal: AbortSignal.timeout(10_000) })
   if (!res.ok) throw new Error(`GET ${url} → HTTP ${res.status}`)
   return res.json()
 }
@@ -190,8 +192,15 @@ await check('raises a geofence notification when the vessel enters a zone', asyn
     context: 'vessels.self',
     updates: [{ source: { label: 'e2e' }, values: [{ path: 'navigation.position', value }] }]
   })
+  // A 404 is the legitimate "nothing raised yet" answer, so it maps to an empty
+  // list. Anything else — a timeout, a 500, a wedged server — must propagate:
+  // swallowing it would read as "no zones active" and let the reset assertion
+  // below pass on a server that is not actually answering.
   const activeZones = async () => {
-    const tree = await getJson(`${BASE}/signalk/v1/api/vessels/self/${subtree}`).catch(() => null)
+    const tree = await getJson(`${BASE}/signalk/v1/api/vessels/self/${subtree}`).catch((err) => {
+      if (err instanceof Error && err.message.includes('HTTP 404')) return null
+      throw err
+    })
     if (tree === null) return []
     return Object.values(tree).filter((z) => z?.value?.state && z.value.state !== 'normal')
   }

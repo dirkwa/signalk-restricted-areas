@@ -58,9 +58,14 @@ npm init -y && npm install signalk-server /tmp/signalk-restricted-areas-*.tgz
 export SIGNALK_NODE_CONFIG_DIR=$PWD
 PORT=3999 NMEA0183PORT=20111 node node_modules/signalk-server/bin/signalk-server
 
-# then, from this repo
-SIGNALK_URL=http://localhost:3999 npm run test:e2e
+# then, from this repo — SIGNALK_NODE_CONFIG_DIR must match the server's, since
+# that is how the wrapper locates the plugin data dir to stage the fixture into
+SIGNALK_URL=http://localhost:3999 SIGNALK_NODE_CONFIG_DIR="$E2E_DIR" npm run test:e2e
 ```
+
+`test:e2e` and `test:integration` both run `ci-integration.mjs`, which does the staging.
+Running `node test/e2e/run.mjs` by hand only asserts — on a server whose `autoUpdate` is still
+at its default that means checking the live Navigator download rather than the fixture.
 
 Pick a free `NMEA0183PORT`: the default 10110 is usually already taken by a real server on
 this machine, and the collision only shows up as a line in the log.
