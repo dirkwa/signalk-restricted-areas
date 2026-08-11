@@ -86,10 +86,12 @@ interface FreeboardStyle {
   lineDash?: number[]
 }
 
-const STYLES: Record<Severity, FreeboardStyle> = {
-  prohibited: { stroke: '#E03030', fill: 'rgba(224,48,48,0.25)', width: 2 },
-  restricted: { stroke: '#FFA500', fill: 'rgba(255,165,0,0.20)', width: 2 },
-  info: { stroke: '#C8B400', fill: 'rgba(200,180,0,0.12)', width: 1 }
+type FreeboardStyleMap = Readonly<Record<string, Readonly<FreeboardStyle>>>
+
+const STYLES: Record<Severity, Readonly<FreeboardStyle>> = {
+  prohibited: Object.freeze({ stroke: '#E03030', fill: 'rgba(224,48,48,0.25)', width: 2 }),
+  restricted: Object.freeze({ stroke: '#FFA500', fill: 'rgba(255,165,0,0.20)', width: 2 }),
+  info: Object.freeze({ stroke: '#C8B400', fill: 'rgba(200,180,0,0.12)', width: 1 })
 }
 
 /** Title-case label for an activity's ResourceSet name. */
@@ -156,13 +158,20 @@ function featureDescription(zone: RestrictedZoneProps): string {
   return lines.join('\n')
 }
 
-/** The subset of display props Freeboard surfaces in a feature popup. */
-function featureProps(zone: RestrictedZoneProps, styleRef: Severity): Record<string, unknown> {
+/**
+ * The subset of display props Freeboard surfaces in a feature popup. The popup
+ * `description` is derived from the zone (not the layer), so callers pass it in
+ * — it is computed once per zone even when the zone spans several layers.
+ */
+function featureProps(
+  zone: RestrictedZoneProps,
+  styleRef: Severity,
+  description: string
+): Record<string, unknown> {
   return {
     styleRef,
     name: zone.name,
-    // Freeboard's popup shows `description`; keep the structured fields too.
-    description: featureDescription(zone),
+    description,
     summary: zone.summary,
     sourceUrls: zone.sourceUrls,
     country: zone.country,
@@ -172,29 +181,31 @@ function featureProps(zone: RestrictedZoneProps, styleRef: Severity): Record<str
   }
 }
 
-function toFeature(zone: IndexedZone, styleRef: Severity): Feature {
+function toFeature(zone: IndexedZone, styleRef: Severity, description: string): Feature {
   return {
     type: 'Feature',
     id: zoneId(zone.props.siteId),
     geometry: zone.geometry,
-    properties: featureProps(zone.props, styleRef)
+    properties: featureProps(zone.props, styleRef, description)
   }
 }
 
-function styleMap(): Record<string, FreeboardStyle> {
-  return {
-    default: STYLES.info,
-    prohibited: STYLES.prohibited,
-    restricted: STYLES.restricted,
-    info: STYLES.info
-  }
-}
+/**
+ * Shared across every ResourceSet — the style map never varies. Frozen (and its
+ * styles with it) so one response cannot mutate the map every later response holds.
+ */
+const STYLE_MAP: FreeboardStyleMap = Object.freeze({
+  default: STYLES.info,
+  prohibited: STYLES.prohibited,
+  restricted: STYLES.restricted,
+  info: STYLES.info
+})
 
 interface ResourceSet {
   type: 'ResourceSet'
   name: string
   description: string
-  styles: Record<string, FreeboardStyle>
+  styles: FreeboardStyleMap
   values: FeatureCollection
 }
 
@@ -209,7 +220,7 @@ function resourceSet(
     name,
     // Spec: the attribution/disclaimer block must terminate the description.
     description: `${blurb} ${attribution}`,
-    styles: styleMap(),
+    styles: STYLE_MAP,
     values: { type: 'FeatureCollection', features }
   }
 }
@@ -230,15 +241,16 @@ function activitySets(
   const info: Feature[] = []
 
   for (const zone of zones) {
+    const description = featureDescription(zone.props)
     let placed = false
     for (const activity of deps.displayActivities) {
       const severity = levelForActivity(zone.props, activity)
       if (severity !== null) {
-        perActivity.get(activity)?.push(toFeature(zone, severity))
+        perActivity.get(activity)?.push(toFeature(zone, severity, description))
         placed = true
       }
     }
-    if (!placed) info.push(toFeature(zone, 'info'))
+    if (!placed) info.push(toFeature(zone, 'info', description))
   }
 
   const out: Record<string, ResourceSet> = {}
@@ -322,7 +334,11 @@ export function makeResourceProvider(deps: ResourceProviderDeps): {
       const siteId = resolveSiteId(id)
       const zone = siteId !== undefined ? deps.index.getFeature(siteId) : undefined
       if (!zone) return Promise.reject(new Error(`restricted area not found: ${id}`))
-      const feature = toFeature(zone, zoneSeverity(zone.props, deps.displayActivities))
+      const feature = toFeature(
+        zone,
+        zoneSeverity(zone.props, deps.displayActivities),
+        featureDescription(zone.props)
+      )
       if (property === undefined) return Promise.resolve(feature)
       const value = getPath(feature, property)
       if (value === undefined) {

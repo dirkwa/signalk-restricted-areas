@@ -108,6 +108,22 @@ describe('listResources — per-activity layers', () => {
     expect(entry.values.features.map((f) => f.id)).toEqual([zoneId('BOTH1')])
   })
 
+  it('gives a zone the same description in every layer it appears in', async () => {
+    // A zone's popup description is derived from the zone, not the layer — it
+    // must read identically whether viewed via its anchoring or entry layer.
+    const both = makeZone('BOTH1', { anchoring: 1, entry: 2 }, 5, 5)
+    const sets = (await provider([both]).methods.listResources({})) as Record<
+      string,
+      { values: FeatureCollection }
+    >
+    const descriptionOf = (set: { values: FeatureCollection }): unknown =>
+      set.values.features[0]?.properties?.description
+    const inAnchoring = descriptionOf(sets['restricted-areas-anchoring'])
+    const inEntry = descriptionOf(sets['restricted-areas-entry'])
+    expect(typeof inAnchoring).toBe('string')
+    expect(inAnchoring).toBe(inEntry)
+  })
+
   it('only emits layers for the configured display activities', async () => {
     const sets = await provider(ALL).methods.listResources({})
     expect(Object.keys(sets)).not.toContain('restricted-areas-fishingCommercial')
@@ -146,6 +162,23 @@ describe('listResources — per-activity layers', () => {
       expect(typeof style.stroke).toBe('string')
       expect(typeof style.width).toBe('number')
     }
+  })
+
+  it('a mutation through one response cannot reach a later one', async () => {
+    const stylesOf = async (): Promise<Record<string, { stroke: string }>> =>
+      (
+        (await provider(ALL).methods.listResources({}))['restricted-areas-anchoring'] as {
+          styles: Record<string, { stroke: string }>
+        }
+      ).styles
+
+    const styles = await stylesOf()
+    const stroke = styles.prohibited.stroke
+    Reflect.set(styles.prohibited, 'stroke', '#000000')
+    Reflect.set(styles, 'prohibited', styles.info)
+
+    const later = await stylesOf()
+    expect(later.prohibited.stroke).toBe(stroke)
   })
 
   it('carries the zone display props onto each Feature', async () => {
