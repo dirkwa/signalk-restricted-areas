@@ -169,13 +169,14 @@ await check('carries the ProtectedSeas attribution on every ResourceSet', async 
   const sets = resourceSets(listing)
   assert.ok(sets.length > 0, 'no ResourceSets to check')
   for (const set of sets) {
-    assert.ok(
-      typeof set.description === 'string',
-      `ResourceSet "${String(set.name)}" has no description`
-    )
+    // `name` is untyped JSON off the wire: report it verbatim when it is not a
+    // string, so a malformed set shows its actual value rather than the
+    // "[object Object]" that String() would flatten it to.
+    const label = typeof set.name === 'string' ? `"${set.name}"` : JSON.stringify(set.name)
+    assert.ok(typeof set.description === 'string', `ResourceSet ${label} has no description`)
     assert.ok(
       set.description.endsWith(expected),
-      `ResourceSet "${String(set.name)}" description does not END with the attribution block.\n` +
+      `ResourceSet ${label} description does not END with the attribution block.\n` +
         `      expected suffix: ${expected}\n` +
         `      actual tail:     ${set.description.slice(-expected.length)}`
     )
