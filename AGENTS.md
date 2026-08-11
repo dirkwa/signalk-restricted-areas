@@ -103,7 +103,13 @@ consumes). Change one, check all four.
   citations, the disclaimer, and `attributionBlock()`.
 - [test/](test/) — vitest. Pure unit tests against in-memory fixtures + mocked `fetch`. The
   antimeridian regression lives in `spatial-index.test.ts`; the coding-key golden in
-  `schema.test.ts`.
+  `schema.test.ts`; the ESM packaging guard in `esm-loader.test.ts` (it loads the BUILT
+  package through a replica of the server's `importOrRequire`).
+- [test/e2e/](test/e2e/) — the end-to-end run: a real Signal K server with the plugin
+  installed, asserted over HTTP (resource type registered, zones served, severity bucketing,
+  attribution, `?bbox=`, and a geofence notification driven by a position delta). Offline —
+  the dataset is a staged FGB fixture, never a download. See
+  [test/e2e/README.md](test/e2e/README.md); it is **not** part of `npm test`.
 
 ## Build, lint, test
 
@@ -112,8 +118,17 @@ npm run format     # prettier --write + eslint --fix
 npm run lint       # eslint check (no auto-fix)
 npm run build      # tsc → plugin/
 npm run build:all  # lint + build + test
-npm test           # vitest
+npm test           # vitest (unit only — no server, no network)
+
+# End-to-end, against a Signal K server you are already running:
+# SIGNALK_NODE_CONFIG_DIR must match the server's — it is how the wrapper finds
+# the plugin data dir to stage the fixture into, and the run aborts without it.
+SIGNALK_URL=http://localhost:3999 SIGNALK_NODE_CONFIG_DIR=/path/to/server npm run test:e2e
 ```
+
+`test:integration` is the same run wrapped for CI — the shared plugin-ci workflow calls it
+automatically once a `test:integration` script exists, staging the fixture into the server it
+just started. Neither e2e script is part of `npm test`; both need a live server.
 
 `plugin/` is gitignored build output; `.scratch/` is gitignored local scratch (cr output,
 verification downloads) — never commit either. `prepublishOnly` rebuilds before npm publish.

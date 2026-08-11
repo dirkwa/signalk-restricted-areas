@@ -14,11 +14,13 @@
     "appIcon": "./app-icon.svg"
   },
   "scripts": {
-    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" && eslint --fix \"src/**/*.ts\" \"test/**/*.ts\"",
-    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" \"test/e2e/*.mjs\" && eslint --fix \"src/**/*.ts\" \"test/**/*.ts\"",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\" && prettier --check \"test/e2e/*.mjs\"",
     "build": "tsc",
     "build:all": "npm run lint && npm run build && npm run test",
     "test": "vitest run",
+    "test:e2e": "npm run build && node test/e2e/ci-integration.mjs",
+    "test:integration": "npm run build && node test/e2e/ci-integration.mjs",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -62,6 +64,7 @@
     "prettier": "^3.4.2",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.18.0",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.8",
+    "ws": "^8.21.3"
   }
 }
